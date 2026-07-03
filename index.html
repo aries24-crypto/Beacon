@@ -35,16 +35,105 @@
         /* Base Styling matching premium SaaS standards */
         body {
             background-color: #111111;
+            /* High-end dotted grid background styling using primary cyan */
+            background-image: radial-gradient(rgba(34, 211, 238, 0.08) 1px, transparent 1px);
+            background-size: 32px 32px;
             color: #FFFFFF;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            position: relative;
+        }
+
+        /* ---------------------------------------------------- */
+        /* PREMIUM AMBIENT CAMERA FLASH & BEAM ANIMATIONS       */
+        /* ---------------------------------------------------- */
+        
+        /* Subtle, sweeping beacon search light */
+        @keyframes sweepingBeam {
+            0%, 100% {
+                transform: translate(0px, 0px) scale(1);
+                opacity: 0.04;
+            }
+            33% {
+                transform: translate(30px, -50px) scale(1.1);
+                opacity: 0.12;
+            }
+            66% {
+                transform: translate(-30px, 20px) scale(0.9);
+                opacity: 0.06;
+            }
+        }
+
+        /* Photographic Camera Flash simulation (Sudden bright pulse, slow elegant decay) */
+        @keyframes cameraFlash {
+            0%, 38%, 62%, 100% {
+                opacity: 0.02;
+                transform: scale(1);
+            }
+            /* Camera shutter button clicked - fast exposure ramp up */
+            40% {
+                opacity: 0.38;
+                transform: scale(1.15);
+            }
+            41% {
+                opacity: 0.45; /* Peak flash exposure */
+                transform: scale(1.18);
+            }
+            /* Slow, cinematic physical decay */
+            45% {
+                opacity: 0.15;
+                transform: scale(1.05);
+            }
+            52% {
+                opacity: 0.02;
+                transform: scale(1);
+            }
+        }
+
+        /* Offset/delayed dynamic flash animation to run in complementary space */
+        @keyframes cameraFlashDelayed {
+            0%, 18%, 82%, 100% {
+                opacity: 0.01;
+                transform: scale(1);
+            }
+            /* Offset shutter click */
+            20% {
+                opacity: 0.32;
+                transform: scale(1.12);
+            }
+            21% {
+                opacity: 0.40;
+                transform: scale(1.15);
+            }
+            25% {
+                opacity: 0.12;
+                transform: scale(1.03);
+            }
+            32% {
+                opacity: 0.01;
+                transform: scale(1);
+            }
+        }
+
+        .animate-sweeping-beam {
+            animation: sweepingBeam 15s ease-in-out infinite;
+        }
+
+        .animate-camera-flash {
+            animation: cameraFlash 12s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+        }
+
+        .animate-camera-flash-delayed {
+            animation: cameraFlashDelayed 12s cubic-bezier(0.16, 1, 0.3, 1) infinite;
         }
 
         /* Pure premium solid borders without gradients or excessive shadows */
         .premium-border {
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: border-color 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background-color: rgba(17, 17, 17, 0.85);
+            transition: border-color 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(8px);
         }
 
         .premium-border:hover {
@@ -69,7 +158,7 @@
         /* Scroll Animation States */
         .reveal-element {
             opacity: 0;
-            transform: translateY(30px);
+            transform: translateY(24px);
             transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -84,7 +173,7 @@
         }
         .interactive-cta:hover {
             transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(34, 211, 238, 0.2);
+            box-shadow: 0 0 25px rgba(34, 211, 238, 0.25);
         }
         .interactive-cta:active {
             transform: translateY(0);
@@ -92,6 +181,19 @@
     </style>
 </head>
 <body class="font-sans antialiased selection:bg-brandCyan selection:text-brandBlack">
+
+    <!-- Fixed Background Canvas Layer (Ensuring pointer events are disabled so UI elements remain interactive) -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <!-- Core Ambient top focus shader -->
+        <div class="absolute inset-x-0 top-0 h-[60vh] bg-gradient-to-b from-brandCyan/[0.03] to-transparent"></div>
+        
+        <!-- Slow moving Beacon beam tracking across the dark environment -->
+        <div class="absolute -top-[15%] left-[10%] w-[65vw] h-[65vw] rounded-full bg-brandCyan/10 blur-[140px] animate-sweeping-beam will-change-transform"></div>
+        
+        <!-- Dynamic Photo Camera Flashes (Intermittent and impactful burst generators) -->
+        <div class="absolute top-[20%] right-[-10%] w-[55vw] h-[55vw] rounded-full bg-brandCyan/20 blur-[160px] animate-camera-flash will-change-transform"></div>
+        <div class="absolute bottom-[15%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brandCyan/15 blur-[120px] animate-camera-flash-delayed will-change-transform"></div>
+    </div>
 
     <!-- Accessible hidden SVG library for fallback use -->
     <div id="svg-fallback" class="hidden">
@@ -103,16 +205,20 @@
         </svg>
     </div>
 
-    <!-- Main Container ensuring standard modern SaaS maximum width -->
-    <main class="max-w-4xl mx-auto px-6 md:px-8">
+    <!-- Main Content Container ensuring standard modern SaaS maximum width, elevated with Z-Index over backdrops -->
+    <main class="relative z-10 max-w-4xl mx-auto px-6 md:px-8">
 
         <!-- HEADER SECTION (Elegant and Minimal) -->
-        <header class="py-6 flex justify-between items-center border-b border-white/[0.05]">
-            <div class="flex items-center gap-2.5">
-                <!-- SVG Icon Logo Mark -->
+        <header class="py-6 flex justify-between items-center border-b border-white/[0.04]">
+            <div class="flex items-center gap-3">
+                <!-- SVG Icon Logo Mark: Clean minimalist glowy beam of light -->
                 <svg class="h-6 w-6 text-brandCyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 22h20L12 2z" />
-                    <circle cx="12" cy="14" r="3" />
+                    <path d="M12 21c-1.5 0-2.5-1-2.5-2h5c0 1-1 2-2.5 2z" opacity="0.4" />
+                    <path d="M12 19V11" stroke-width="2" />
+                    <path d="M5 3l7 8 7-8" opacity="0.6" />
+                    <path d="M8 3l4 8 4-8" opacity="0.8" />
+                    <line x1="12" y1="3" x2="12" y2="11" />
+                    <circle cx="12" cy="11" r="2" fill="#22D3EE" />
                 </svg>
                 <span class="text-lg font-bold tracking-wider uppercase text-brandWhite">Beacon</span>
             </div>
@@ -166,7 +272,7 @@
         </section>
 
         <!-- SECTION 2: WHY BEACON -->
-        <section class="py-16 md:py-28 border-t border-white/[0.05] reveal-element">
+        <section class="py-16 md:py-28 border-t border-white/[0.04] reveal-element">
             <div class="text-center mb-16">
                 <p class="text-xs font-bold tracking-[0.2em] text-brandCyan uppercase mb-2">Designed for Mastery</p>
                 <h2 class="text-2xl md:text-3xl font-bold text-brandWhite">Why Beacon?</h2>
@@ -177,8 +283,8 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 <!-- Card 1: Understand -->
-                <div class="premium-border bg-brandBlack p-8 rounded-xl flex flex-col items-start text-left">
-                    <div class="p-3 bg-white/[0.03] rounded-lg mb-6 border border-white/[0.05]">
+                <div class="premium-border p-8 rounded-xl flex flex-col items-start text-left">
+                    <div class="p-3 bg-white/[0.02] rounded-lg mb-6 border border-white/[0.05]">
                         <!-- SVG: Lightbulb / Concept Clarity -->
                         <svg class="h-6 w-6 text-brandCyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A5 5 0 0 0 8 8c0 1 .3 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
@@ -193,8 +299,8 @@
                 </div>
 
                 <!-- Card 2: Organize -->
-                <div class="premium-border bg-brandBlack p-8 rounded-xl flex flex-col items-start text-left">
-                    <div class="p-3 bg-white/[0.03] rounded-lg mb-6 border border-white/[0.05]">
+                <div class="premium-border p-8 rounded-xl flex flex-col items-start text-left">
+                    <div class="p-3 bg-white/[0.02] rounded-lg mb-6 border border-white/[0.05]">
                         <!-- SVG: Structured Layers -->
                         <svg class="h-6 w-6 text-brandCyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 2L2 7l10 5 10-5-10-5z" />
@@ -209,8 +315,8 @@
                 </div>
 
                 <!-- Card 3: Master -->
-                <div class="premium-border bg-brandBlack p-8 rounded-xl flex flex-col items-start text-left">
-                    <div class="p-3 bg-white/[0.03] rounded-lg mb-6 border border-white/[0.05]">
+                <div class="premium-border p-8 rounded-xl flex flex-col items-start text-left">
+                    <div class="p-3 bg-white/[0.02] rounded-lg mb-6 border border-white/[0.05]">
                         <!-- SVG: Check/Target/Mastery -->
                         <svg class="h-6 w-6 text-brandCyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -227,7 +333,7 @@
         </section>
 
         <!-- SECTION 3: HOW IT WORKS (Minimal Vertical Timeline) -->
-        <section class="py-16 md:py-28 border-t border-white/[0.05] reveal-element">
+        <section class="py-16 md:py-28 border-t border-white/[0.04] reveal-element">
             <div class="text-center mb-16">
                 <p class="text-xs font-bold tracking-[0.2em] text-brandCyan uppercase mb-2">Simplicity First</p>
                 <h2 class="text-2xl md:text-3xl font-bold text-brandWhite">How It Works</h2>
@@ -311,7 +417,7 @@
         </section>
 
         <!-- FINAL CONVERSION ZONE -->
-        <section class="py-16 md:py-24 border-t border-white/[0.05] text-center reveal-element">
+        <section class="py-16 md:py-24 border-t border-white/[0.04] text-center reveal-element">
             <h3 class="text-2xl md:text-4xl font-extrabold text-brandWhite mb-4">Ready to elevate your study sessions?</h3>
             <p class="text-sm text-white/60 mb-8 max-w-md mx-auto">Get absolute clarity, structure, and direction on demand. Try Beacon today.</p>
             <div class="w-full max-w-xs mx-auto px-4">
@@ -325,11 +431,16 @@
         </section>
 
         <!-- FOOTER SECTION -->
-        <footer class="py-12 border-t border-white/[0.05] text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-8">
+        <footer class="py-12 border-t border-white/[0.04] text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-8">
             <div class="space-y-2">
-                <div class="flex items-center justify-center md:justify-start gap-2">
+                <div class="flex items-center justify-center md:justify-start gap-3">
                     <svg class="h-5 w-5 text-brandCyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2L2 22h20L12 2z" />
+                        <path d="M12 21c-1.5 0-2.5-1-2.5-2h5c0 1-1 2-2.5 2z" opacity="0.4" />
+                        <path d="M12 19V11" stroke-width="2" />
+                        <path d="M5 3l7 8 7-8" opacity="0.6" />
+                        <path d="M8 3l4 8 4-8" opacity="0.8" />
+                        <line x1="12" y1="3" x2="12" y2="11" />
+                        <circle cx="12" cy="11" r="2" fill="#22D3EE" />
                     </svg>
                     <span class="text-sm font-bold tracking-widest uppercase text-brandWhite">Beacon</span>
                 </div>
