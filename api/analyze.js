@@ -1,9 +1,20 @@
 /**
+ * Vercel Serverless Function Config
+ * Raises the request body parser limit to support large PDF extractions
+ */
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb'
+    }
+  }
+};
+
+/**
  * Vercel Serverless Function
  * Endpoint: /api/analyze
  * Purpose: Securely analyzes study materials using the official Groq API with robust schema mapping.
  */
-
 export default async function handler(req, res) {
   // 1. Enforce POST Request Method Only
   if (req.method !== 'POST') {
@@ -25,7 +36,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 3. Robust Request Body & JSON Validation
+    // 3. Robust Request Body & JSON Validation (Handles buffers, stringified JSON, and native objects)
     let body;
     if (typeof req.body === 'string') {
       try {
@@ -34,6 +45,15 @@ export default async function handler(req, res) {
         return res.status(400).json({
           success: false,
           error: 'Bad Request: Invalid JSON formatting in request body.'
+        });
+      }
+    } else if (req.body && Buffer.isBuffer(req.body)) {
+      try {
+        body = JSON.parse(req.body.toString('utf-8'));
+      } catch (bufferParseError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request: Invalid JSON formatting in request Buffer.'
         });
       }
     } else {
@@ -81,8 +101,8 @@ export default async function handler(req, res) {
 
     // 5. Large Document Safety Safeguard
     // Truncating excessively large PDFs to protect function from exceeding context limits or causing Vercel timeouts.
-    // 60,000 characters provides ~12,000 to 15,000 words, which is rich enough for deep academic analysis.
-    const MAX_TEXT_LENGTH = 60000;
+    // 40,000 characters provides ~8,000 to 10,000 words, perfect for deep analysis while ensuring fast response times.
+    const MAX_TEXT_LENGTH = 40000;
     let analyzedText = trimmedText;
     let wasTruncated = false;
 
@@ -111,7 +131,7 @@ Whenever appropriate:
 
 You must output valid JSON ONLY.
 Never output any markdown blocks like \`\`\`json. Return only raw, parsing-ready stringified JSON.
-No conversational intro or outro text.
+No conversational intro or outro text. Keep explanations dense and eliminate redundant filler phrases to optimize token generation speed.
 
 Strictly adhere to this detailed academic JSON schema:
 {
@@ -131,7 +151,7 @@ Strictly adhere to this detailed academic JSON schema:
   "subtopics": [
     {
       "title": "Subtopic Name",
-      "learning_order": "An integer showing the logical, progressive learning order of subtopics",
+      "learning_order": 1,
       "description": "An engaging, deep pedagogical description explaining the subtopic thoroughly"
     }
   ],
@@ -187,15 +207,17 @@ Strictly adhere to this detailed academic JSON schema:
 }`;
 
     // 7. Establish Fetch Call with Timeout Abort Controller
-    // Vercel hobby functions timeout after 10-15s; we set abort at 22s to cleanly respond with an API error first.
+    // Vercel Hobby accounts forcefully terminate functions after 10s.
+    // By setting our internal cutoff at 8.5 seconds (8500ms), we can catch the timeout internally,
+    // and return a graceful, user-friendly JSON response instead of a native Vercel HTML Crash page.
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
       abortController.abort();
-    }, 22000);
+    }, 8500);
 
     let groqResponse;
     try {
-      // Correct official endpoint: https://api.groq.com/openai/v1/chat/completions
+      // Official OpenAI-compatible endpoint for Groq
       groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -203,14 +225,14 @@ Strictly adhere to this detailed academic JSON schema:
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile', // Highly performant document understanding model
+          model: 'llama-3.3-70b-versatile', // Premier document analysis reasoning model
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Analyze this material with complete academic depth:\n\n${analyzedText}` }
           ],
-          temperature: 0.3, // Low temperature ensures consistency and strict adherence to JSON schema
-          response_format: { type: 'json_object' }, // Officially supported JSON enforcing format
-          max_tokens: 6000 // Ensures deep responses are not cut off prematurely
+          temperature: 0.3, // Keeps output highly structured and deterministic
+          response_format: { type: 'json_object' }, // Guarantees JSON mode compliance
+          max_tokens: 4500 // Balanced output threshold preventing response truncation
         }),
         signal: abortController.signal
       });
@@ -218,10 +240,10 @@ Strictly adhere to this detailed academic JSON schema:
       if (fetchError.name === 'AbortError') {
         return res.status(504).json({
           success: false,
-          error: 'Gateway Timeout: The Groq API took too long to generate the detailed study guide.'
+          error: 'Timeout Exception: The academic material is highly complex and took too long to analyze. Please try a smaller section of text or retry in a few moments.'
         });
       }
-      throw fetchError; // Bubble up unexpected network exceptions
+      throw fetchError;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -232,16 +254,12 @@ Strictly adhere to this detailed academic JSON schema:
       const errorText = JSON.stringify(errorPayload) || `HTTP Error ${groqResponse.status}`;
       console.error(`[GROQ API ERROR] Status Code: ${groqResponse.status}`, errorText);
 
-      // --- DEVELOPMENT DEBUG TOGGLE ---
-      // Return the detailed error payload directly for easy debugging.
-      // For final production release, swap this return block with a generic message:
-      // return res.status(502).json({ success: false, error: 'Failed to generate study assets. AI upstream error.' });
+      // Returns the error package safely for structural debugging in active development.
       return res.status(502).json({
         success: false,
         error: 'Upstream AI Service Error: Groq API rejected the analysis request.',
         details: errorPayload
       });
-      // ---------------------------------
     }
 
     const responseData = await groqResponse.json();
@@ -270,7 +288,7 @@ Strictly adhere to this detailed academic JSON schema:
       return res.status(500).json({
         success: false,
         error: 'AI formatting error: Failed to parse the study guide structure into proper JSON format.',
-        rawResponse: rawAiResponse // Returning raw text to guarantee recovery and debugging during development
+        rawResponse: rawAiResponse
       });
     }
 
