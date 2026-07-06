@@ -318,27 +318,40 @@
           <!-- ================= INLINE ANALYSIS SECTION ================= -->
           <div id="inlineAnalysisContainer" class="max-w-4xl hidden transition-all duration-300">
             <div id="summaryTargetAnchor" class="p-6 rounded-2xl bg-brandCard border border-brandCyan/15 space-y-6">
+              
+              <!-- Analysis Section Header -->
               <div class="flex items-center justify-between border-b border-neutral-900 pb-4">
                 <div>
                   <span class="text-[10px] font-display font-bold text-brandCyan bg-brandCyan/10 px-2 py-1 rounded">Interactive Structure Ready</span>
-                  <h4 id="analysisDocTitle" class="font-display font-bold text-lg text-brandWhite mt-2">Thematic Concepts</h4>
+                  <h4 id="analysisMainDocTitle" class="font-display font-bold text-lg text-brandWhite mt-2">Thematic Concepts</h4>
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-3">
-                  <h5 class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Executive Summary</h5>
-                  <div class="p-4 rounded-lg bg-neutral-950/60 border border-neutral-900 text-sm text-neutral-300 leading-relaxed space-y-2">
-                    <p id="analysisSummaryText">Reading active components...</p>
-                    <p class="text-neutral-400 text-xs">Analysis computed securely on current guest local environment.</p>
-                  </div>
+              <!-- Deep Pedagogical Executive Summary -->
+              <div class="space-y-3">
+                <h5 class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Pedagogical Overview</h5>
+                <div class="p-4 rounded-lg bg-neutral-950/60 border border-neutral-900 text-sm text-neutral-300 leading-relaxed space-y-2">
+                  <p id="analysisSummaryText">Reading active components...</p>
+                  <p class="text-neutral-500 text-xs italic">Note: All concepts and outlines were extracted dynamically to build your interactive workspace.</p>
                 </div>
+              </div>
 
-                <div class="space-y-3">
-                  <h5 id="conceptsTargetAnchor" class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Identified Core Entities</h5>
-                  <div id="analysisEntities" class="space-y-2">
-                    <!-- Dynamic tags generated here -->
+              <!-- Interactive Concept Distribution Graph/Chart (SVG Powered) -->
+              <div class="space-y-3 pt-4">
+                <h5 class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Estimated Content Weightage & Complexity</h5>
+                <div class="p-4 rounded-lg bg-neutral-950/60 border border-neutral-900 flex flex-col items-center">
+                  <div id="chartSvgWrapper" class="w-full overflow-x-auto max-w-full flex justify-center py-2">
+                    <!-- Programmatically Populated SVG Chart -->
                   </div>
+                  <p class="text-[10px] text-neutral-500 mt-2 text-center">Interactive curve mapping the estimated study progression times relative to complexity indices.</p>
+                </div>
+              </div>
+
+              <!-- Main Dynamic Analysis Content -->
+              <div class="space-y-6 pt-4">
+                <h5 id="conceptsTargetAnchor" class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Detailed Course Breakdown</h5>
+                <div id="analysisEntities" class="space-y-6">
+                  <!-- Dynamic tags, timelines, formulas, definitions, and questions generated here -->
                 </div>
               </div>
 
@@ -464,8 +477,8 @@
             <div id="chatMessageWrapper" class="flex-1 overflow-y-auto p-4 space-y-4">
               <div class="flex gap-3 max-w-2xl">
                 <div class="w-8 h-8 rounded bg-brandCyan/10 flex items-center justify-center border border-brandCyan/20 text-brandCyan flex-shrink-0 text-xs">AI</div>
-                <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300">
-                  Hello! I'm your learning mentor. Upload your document in the main dashboard, and we can explore the topics together. What are we studying today?
+                <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300 leading-relaxed">
+                  Hi! I'm your study partner and tutor. Upload your documents in the workspace, and we can explore any questions, clear up complicated topics, or run interactive exercises. What would you like to master today?
                 </div>
               </div>
             </div>
@@ -885,6 +898,7 @@
       localStorage.setItem('userProfile', JSON.stringify(state.userProfile));
     }
 
+    // --- DIALOG BOX UTILS ---
     function openProfileViewer() {
       if (!state.userProfile) return;
       document.getElementById('pvName').innerText = state.userProfile.name;
@@ -1012,45 +1026,61 @@
         // --- SECURE AND RIGOROUS LOGGING ---
         console.log("=== BEACON API RESPONSE DATA ===");
         console.log("Raw Response JSON Data:", data);
-        console.log("Response Keys:", Object.keys(data));
+        if (data && data.analysis) {
+          console.log("Beacon Analysis:", data.analysis);
+          console.log("typeof analysis:", typeof data.analysis);
+          console.log("Object.keys(analysis):", Object.keys(data.analysis));
+        }
         
-        // Safe extraction patterns: Handle nested object structural variants
-        let parsedAnalysis = null;
-        let finalSummary = "";
-        let finalFlashcards = [];
-        let finalQuiz = [];
-        let finalTopics = [];
+        if (!data.success || !data.analysis) {
+          throw new Error(data.error || "The server responded with an error or returned invalid analysis data.");
+        }
 
-        // If backend wraps everything inside a nested "analysis" key or "data" object
-        if (data.analysis && typeof data.analysis === 'object' && !Array.isArray(data.analysis)) {
-          parsedAnalysis = data.analysis;
-          finalSummary = data.summary || data.analysis.summary || MOCK_SUMMARY;
-          finalFlashcards = data.flashcards || data.analysis.flashcards || MOCK_FLASHCARDS;
-          finalQuiz = data.quiz || data.analysis.quiz || data.quiz_questions || data.analysis.quiz_questions || MOCK_QUIZ;
-          finalTopics = data.topics || data.analysis.topics || null;
+        const analysisObj = data.analysis;
+
+        // Apply robust structural mappings
+        state.analysis = analysisObj;
+        state.summary = analysisObj.summary || MOCK_SUMMARY;
+        
+        // Match the backend "quiz_questions" format with the frontend's choices/index expected layout
+        if (analysisObj.quiz_questions && Array.isArray(analysisObj.quiz_questions)) {
+          state.quiz = analysisObj.quiz_questions.map(q => {
+            const choices = q.options || q.choices || [];
+            let correctIdx = choices.indexOf(q.correct_answer);
+            if (correctIdx === -1) {
+              correctIdx = choices.findIndex(c => c.toLowerCase().trim() === (q.correct_answer || "").toLowerCase().trim());
+            }
+            if (correctIdx === -1) correctIdx = 0; // Default fallback safety index
+            
+            return {
+              question: q.question,
+              choices: choices,
+              correct: correctIdx,
+              explanation: q.explanation || "No detailed breakdown provided."
+            };
+          });
         } else {
-          // If response is the flat root target object
-          parsedAnalysis = data;
-          finalSummary = data.summary || MOCK_SUMMARY;
-          finalFlashcards = data.flashcards || MOCK_FLASHCARDS;
-          finalQuiz = data.quiz || data.quiz_questions || MOCK_QUIZ;
-          finalTopics = data.topics || null;
+          state.quiz = MOCK_QUIZ;
         }
 
-        console.log("Computed Target Object 'parsedAnalysis':", parsedAnalysis);
-        console.log("Type of parsedAnalysis:", typeof parsedAnalysis);
-        if (parsedAnalysis) {
-          console.log("Keys inside parsedAnalysis:", Object.keys(parsedAnalysis));
+        // Match flashcards array
+        if (analysisObj.flashcards && Array.isArray(analysisObj.flashcards)) {
+          state.flashcards = analysisObj.flashcards.map(f => ({
+            front: f.front,
+            back: f.back
+          }));
+        } else {
+          state.flashcards = MOCK_FLASHCARDS;
         }
 
-        // Apply clean normalization maps
-        state.analysis = parsedAnalysis;
-        state.summary = finalSummary;
-        state.flashcards = Array.isArray(finalFlashcards) ? finalFlashcards : MOCK_FLASHCARDS;
-        state.quiz = Array.isArray(finalQuiz) ? finalQuiz : MOCK_QUIZ;
-        state.topics = Array.isArray(finalTopics) ? finalTopics : null;
+        // Match topics array
+        if (analysisObj.topics && Array.isArray(analysisObj.topics)) {
+          state.topics = analysisObj.topics.map(t => t.title || t);
+        } else {
+          state.topics = null;
+        }
+
         state.chatHistory = [];
-        
         state.quizState = { currentIndex: 0, score: 0, selectedChoice: null, answered: false };
         state.flashcardState = { currentIndex: 0, flipped: false };
 
@@ -1059,8 +1089,8 @@
         saveDocumentMetadata({ 
           key: fileKey, 
           title: state.uploadedDocumentName, 
-          difficulty: data.difficulty || "Intermediate", 
-          estimatedStudyTime: data.estimatedStudyTime || "45 mins" 
+          difficulty: analysisObj.difficulty || "Intermediate", 
+          estimatedStudyTime: analysisObj.estimated_study_time || "45 mins" 
         });
 
         revealPostAnalysisUI();
@@ -1073,10 +1103,125 @@
       }
     }
 
+    function renderDynamicChart(analysisObj) {
+      const wrapper = document.getElementById('chartSvgWrapper');
+      if (!wrapper) return;
+      wrapper.innerHTML = "";
+
+      let topics = [];
+      if (analysisObj && analysisObj.topics && Array.isArray(analysisObj.topics)) {
+        topics = analysisObj.topics;
+      } else {
+        topics = [
+          { title: "Structured Recall", estimated_learning_time: "25 minutes", difficulty: "Beginner" },
+          { title: "Cognitive Maps", estimated_learning_time: "35 minutes", difficulty: "Intermediate" },
+          { title: "Analytical Prompts", estimated_learning_time: "45 minutes", difficulty: "Advanced" }
+        ];
+      }
+
+      // Convert estimated learning time strings like "30 minutes" into numbers
+      const parsedData = topics.map(t => {
+        let mins = 20; // fallback default
+        if (t.estimated_learning_time) {
+          const match = t.estimated_learning_time.match(/\d+/);
+          if (match) mins = parseInt(match[0]);
+        }
+        let diffWeight = 1;
+        if (t.difficulty === "Intermediate") diffWeight = 2;
+        if (t.difficulty === "Advanced") diffWeight = 3;
+
+        return {
+          title: t.title || "Topic",
+          minutes: mins,
+          difficulty: t.difficulty || "Intermediate",
+          weight: diffWeight
+        };
+      });
+
+      const maxMins = Math.max(...parsedData.map(d => d.minutes), 30);
+      const svgWidth = Math.max(parsedData.length * 150 + 100, 450);
+      const svgHeight = 220;
+      const padLeft = 50;
+      const padBottom = 40;
+      const padTop = 20;
+      const padRight = 30;
+
+      const chartWidth = svgWidth - padLeft - padRight;
+      const chartHeight = svgHeight - padTop - padBottom;
+
+      // Create SVG Elements manually
+      let svgContent = `<svg width="${svgWidth}" height="${svgHeight}" class="bg-neutral-950/20 font-sans text-neutral-400 text-[10px]">`;
+      
+      // Grid lines
+      for (let i = 0; i <= 4; i++) {
+        const y = padTop + (chartHeight / 4) * i;
+        const value = Math.round(maxMins - (maxMins / 4) * i);
+        svgContent += `
+          <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="rgba(255,255,255,0.04)" stroke-dasharray="2 2" />
+          <text x="${padLeft - 10}" y="${y + 4}" text-anchor="end" fill="#555" class="font-mono text-[9px]">${value}m</text>
+        `;
+      }
+
+      // Draw Bars and curves
+      const barWidth = Math.min(60, chartWidth / parsedData.length - 20);
+      const spacing = chartWidth / parsedData.length;
+
+      parsedData.forEach((d, idx) => {
+        const x = padLeft + spacing * idx + (spacing - barWidth) / 2;
+        const barHeight = (d.minutes / maxMins) * chartHeight;
+        const y = svgHeight - padBottom - barHeight;
+
+        // Color based on difficulty weighting
+        let gradientColor = "url(#cyanGrad)";
+        if (d.difficulty === "Intermediate") gradientColor = "url(#blueGrad)";
+        if (d.difficulty === "Advanced") gradientColor = "url(#purpleGrad)";
+
+        // Hoverable interactive bar
+        svgContent += `
+          <g class="cursor-pointer group">
+            <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${gradientColor}" rx="4" opacity="0.8" class="transition-all hover:opacity-100" />
+            
+            <!-- Value text on top -->
+            <text x="${x + barWidth/2}" y="${y - 6}" text-anchor="middle" fill="#00E5FF" class="font-mono text-[9px] font-bold group-hover:scale-110 transition-all">${d.minutes}m</text>
+            
+            <!-- Bottom X label -->
+            <text x="${x + barWidth/2}" y="${svgHeight - padBottom + 16}" text-anchor="middle" fill="#777" class="font-display font-medium select-none truncate" style="max-width: ${barWidth}px;">
+              ${d.title.length > 12 ? d.title.substring(0, 10) + '..' : d.title}
+            </text>
+            
+            <!-- Tooltip simulation (visible on hover) -->
+            <rect x="${x - 10}" y="${y - 40}" width="${barWidth + 20}" height="30" fill="#101010" stroke="rgba(0,229,255,0.2)" rx="4" class="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
+            <text x="${x + barWidth/2}" y="${y - 28}" text-anchor="middle" fill="#FFF" class="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity font-bold text-[8px]">${d.difficulty}</text>
+            <text x="${x + barWidth/2}" y="${y - 18}" text-anchor="middle" fill="#00E5FF" class="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity text-[8px]">${d.minutes} Mins Required</text>
+          </g>
+        `;
+      });
+
+      // Definitions for gradients
+      svgContent += `
+        <defs>
+          <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#00E5FF" />
+            <stop offset="100%" stop-color="#008099" stop-opacity="0.2" />
+          </linearGradient>
+          <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#00A2FF" />
+            <stop offset="100%" stop-color="#004D80" stop-opacity="0.2" />
+          </linearGradient>
+          <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#9D00FF" />
+            <stop offset="100%" stop-color="#4D0080" stop-opacity="0.2" />
+          </linearGradient>
+        </defs>
+      </svg>`;
+
+      wrapper.innerHTML = svgContent;
+    }
+
     function revealPostAnalysisUI() {
       displayUploadedFile();
       
-      // Wrap rendering processes in individual try-catch locks to prevent complete UI failure
+      // Wrap rendering processes in individual try-catch blocks to prevent cascading UI failure
       try {
         populateAnalysisUI();
       } catch (e) {
@@ -1101,6 +1246,12 @@
         console.error("Failed executing renderChatHistory", e);
       }
 
+      try {
+        renderDynamicChart(state.analysis);
+      } catch (e) {
+        console.error("Failed executing renderDynamicChart", e);
+      }
+
       updateDashboardStatistics();
 
       // Render Dashboard Summary Metrics safely
@@ -1119,7 +1270,7 @@
           topicsLength = possibleList.length;
         } else if (typeof state.analysis === 'object') {
           // Fallback to object keys count
-          topicsLength = Object.keys(state.analysis).filter(k => k !== 'summary' && k !== 'flashcards' && k !== 'quiz').length || 3;
+          topicsLength = Object.keys(state.analysis).filter(k => k !== 'summary' && k !== 'flashcards' && k !== 'quiz' && k !== 'quiz_questions' && k !== 'topics').length || 3;
         }
       }
       document.getElementById('dashboardTopicsCount').innerText = `${topicsLength} Topics`;
@@ -1138,6 +1289,7 @@
       buttons.forEach(b => b.setAttribute('disabled', 'true'));
     }
 
+    // --- ACCESSIBLE OVERLAY HIDING CONTROLS ---
     function hideLoadingOverlay() {
       document.getElementById('loadingOverlay').classList.add('hidden');
       const buttons = document.querySelectorAll('button, input, label');
@@ -1149,6 +1301,7 @@
       document.getElementById('conceptsTargetAnchor').scrollIntoView({ behavior: 'smooth' });
     }
 
+    // --- AUTO SCROLL SUMMARIES ---
     function scrollToSummary() {
       document.getElementById('summaryTargetAnchor').scrollIntoView({ behavior: 'smooth' });
     }
@@ -1323,49 +1476,192 @@
       initializeProfile();
     }
 
-    // --- STRUCTURING INLINE COMPONENT VIEWS ---
+    // --- STRUCTURING INLINE COMPONENT VIEWS (Updated to completely support the Vercel Schema) ---
     function populateAnalysisUI() {
-      document.getElementById('analysisDocTitle').innerText = `${state.uploadedDocumentName} Structure`;
+      document.getElementById('analysisMainDocTitle').innerText = `${state.uploadedDocumentName} Structure`;
       document.getElementById('analysisSummaryText').innerText = state.summary;
 
       const entitiesBox = document.getElementById('analysisEntities');
       entitiesBox.innerHTML = "";
 
-      // Safe evaluation: Ensure we are only iterating arrays, NOT calling forEach on standard key objects
-      let targetList = [];
-      if (Array.isArray(state.analysis)) {
-        targetList = state.analysis;
-      } else if (state.analysis && typeof state.analysis === 'object') {
-        // Fallback strategies to scan properties
-        const possibleArray = state.analysis.entities || state.analysis.concepts || state.analysis.topics || null;
-        if (Array.isArray(possibleArray)) {
-          targetList = possibleArray;
-        } else {
-          // Normalise properties object to key array mapping
-          targetList = Object.keys(state.analysis)
-            .filter(key => key !== 'summary' && key !== 'flashcards' && key !== 'quiz' && key !== 'topics' && key !== 'quiz_questions')
-            .map(key => {
-              const val = state.analysis[key];
-              return {
-                tag: key,
-                desc: typeof val === 'string' ? val : (val.desc || val.description || JSON.stringify(val))
-              };
-            });
-        }
+      const analysisObj = state.analysis;
+      if (!analysisObj || typeof analysisObj !== 'object') {
+        renderConceptsList(MOCK_ENTITIES);
+        return;
       }
 
-      // Default fallback if no concepts parsed
-      if (targetList.length === 0) {
-        targetList = MOCK_ENTITIES;
+      let sectionHtml = "";
+
+      // 1. Topics Category (Backend schema contains "topics" as array of objects)
+      if (analysisObj.topics && Array.isArray(analysisObj.topics) && analysisObj.topics.length > 0) {
+        sectionHtml += `<div class="space-y-3"><h6 class="text-[10px] tracking-widest font-display text-neutral-500 uppercase font-bold">Key Course Topics</h6><div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+        analysisObj.topics.forEach(t => {
+          sectionHtml += `
+            <div class="p-4 rounded-xl bg-neutral-900/30 border border-neutral-900/80 space-y-2 hover:border-brandCyan/20 transition-all flex flex-col justify-between">
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-xs font-display font-bold text-brandCyan">${t.title || 'Untitled Topic'}</span>
+                  <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-brandCyan/5 text-brandCyan border border-brandCyan/10">${t.difficulty || 'Intermediate'}</span>
+                </div>
+                <p class="text-[11px] text-neutral-300 leading-normal">${t.importance || ''}</p>
+              </div>
+              <div class="pt-2 border-t border-neutral-950 text-[10px] space-y-1">
+                ${t.estimated_learning_time ? `<p class="text-neutral-400"><strong>Learning Duration:</strong> ${t.estimated_learning_time}</p>` : ''}
+                ${t.prerequisites ? `<p class="text-neutral-500"><strong>Required Grounding:</strong> ${t.prerequisites}</p>` : ''}
+                ${t.common_misconceptions ? `<p class="text-red-400/80"><strong>Common Pitfall:</strong> ${t.common_misconceptions}</p>` : ''}
+                ${t.real_world_applications ? `<p class="text-brandCyan/80"><strong>Industry Context:</strong> ${t.real_world_applications}</p>` : ''}
+              </div>
+            </div>
+          `;
+        });
+        sectionHtml += `</div></div>`;
       }
 
-      targetList.forEach(item => {
-        if (!item || !item.tag) return;
+      // 2. Subtopics Progression Roadmap (Subtopics structured timeline)
+      if (analysisObj.subtopics && Array.isArray(analysisObj.subtopics) && analysisObj.subtopics.length > 0) {
+        const sortedSubtopics = [...analysisObj.subtopics].sort((a, b) => (parseInt(a.learning_order) || 0) - (parseInt(b.learning_order) || 0));
+        
+        sectionHtml += `
+          <div class="space-y-3 pt-2">
+            <h6 class="text-[10px] tracking-widest font-display text-neutral-500 uppercase font-bold">Progressive Study Timeline</h6>
+            <div class="relative pl-6 border-l border-brandCyan/10 space-y-4 py-2">
+        `;
+        
+        sortedSubtopics.forEach(st => {
+          sectionHtml += `
+            <div class="relative group">
+              <!-- Timeline node indicator -->
+              <span class="absolute -left-[30px] top-1 h-4 w-4 rounded-full bg-neutral-950 border border-brandCyan/30 flex items-center justify-center text-[8px] text-brandCyan font-mono group-hover:border-brandCyan group-hover:cyan-glow transition-all">${st.learning_order || '•'}</span>
+              
+              <div class="space-y-1">
+                <span class="text-xs font-display font-semibold text-brandWhite group-hover:text-brandCyan transition-colors">${st.title || 'Subtopic'}</span>
+                <p class="text-[11px] text-neutral-400 leading-normal max-w-2xl">${st.description || ''}</p>
+              </div>
+            </div>
+          `;
+        });
+        
+        sectionHtml += `</div></div>`;
+      }
+
+      // 3. Definitions Glossary Category
+      if (analysisObj.definitions && Array.isArray(analysisObj.definitions) && analysisObj.definitions.length > 0) {
+        sectionHtml += `<div class="space-y-3 pt-2"><h6 class="text-[10px] tracking-widest font-display text-neutral-500 uppercase font-bold">Concept Terminology Glossary</h6><div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
+        analysisObj.definitions.forEach(d => {
+          sectionHtml += `
+            <div class="p-3.5 rounded-lg bg-neutral-900/30 border border-neutral-900/80 space-y-1.5 hover:border-brandCyan/10 transition-colors">
+              <h6 class="text-xs font-display font-bold text-brandWhite inline-flex items-center gap-2">
+                <span class="h-1.5 w-1.5 rounded-full bg-brandCyan"></span>
+                ${d.term || 'Term'}
+              </h6>
+              <p class="text-[11px] text-neutral-400 leading-relaxed">${d.meaning || ''}</p>
+              ${d.example ? `<p class="text-[10px] text-neutral-500 font-mono">Example: ${d.example}</p>` : ''}
+              ${d.real_world_context ? `<p class="text-[10px] text-neutral-600">Applied: ${d.real_world_context}</p>` : ''}
+            </div>
+          `;
+        });
+        sectionHtml += `</div></div>`;
+      }
+
+      // 4. Formulas and Algebraic relationships
+      if (analysisObj.formulas && Array.isArray(analysisObj.formulas) && analysisObj.formulas.length > 0) {
+        sectionHtml += `<div class="space-y-3 pt-2"><h6 class="text-[10px] tracking-widest font-display text-neutral-500 uppercase font-bold">Theorems, Logic & Mathematical Relations</h6>`;
+        analysisObj.formulas.forEach(f => {
+          sectionHtml += `
+            <div class="p-4 rounded-xl bg-neutral-900/40 border border-brandCyan/10 space-y-3 hover:border-brandCyan/30 transition-all">
+              <div class="text-sm font-mono text-brandCyan text-center py-3 bg-neutral-950/80 rounded-lg border border-neutral-900 overflow-x-auto">${f.formula || ''}</div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] pt-1">
+                <div class="space-y-1">
+                  <p class="text-neutral-400"><strong>Relationship breakdown:</strong> ${f.meaning || ''}</p>
+                  ${f.variable_explanations ? `<p class="text-neutral-500"><strong>Variables:</strong> ${f.variable_explanations}</p>` : ''}
+                  ${f.derivation ? `<p class="text-neutral-500"><strong>Historical Derivation:</strong> ${f.derivation}</p>` : ''}
+                </div>
+                <div class="space-y-1">
+                  ${f.when_to_use ? `<p class="text-neutral-400"><strong>Ideal usage conditions:</strong> ${f.when_to_use}</p>` : ''}
+                  ${f.common_mistakes ? `<p class="text-red-400/80"><strong>Common Mistakes:</strong> ${f.common_mistakes}</p>` : ''}
+                  ${f.example_calculation ? `<div class="p-2 rounded bg-neutral-950/60 border border-neutral-900 mt-1"><span class="text-[10px] text-brandCyan uppercase font-mono block">Example calculation steps</span><p class="text-[10px] text-neutral-400 leading-normal">${f.example_calculation}</p></div>` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        sectionHtml += `</div>`;
+      }
+
+      // 5. University Exam Essay Prep (Exam prep open-ended essay Questions)
+      if (analysisObj.exam_questions && Array.isArray(analysisObj.exam_questions) && analysisObj.exam_questions.length > 0) {
+        sectionHtml += `<div class="space-y-3 pt-2"><h6 class="text-[10px] tracking-widest font-display text-neutral-500 uppercase font-bold">University-Level Analytical Exam Questions</h6><div class="space-y-2">`;
+        analysisObj.exam_questions.forEach((eq, idx) => {
+          sectionHtml += `
+            <div class="p-4 rounded-xl bg-neutral-900/30 border border-neutral-900 space-y-2">
+              <span class="text-[9px] font-mono text-neutral-500 block">Scenario Question ${idx + 1}</span>
+              <p class="text-xs font-display font-medium text-brandWhite leading-normal">${eq.question || ''}</p>
+              ${eq.model_answer ? `
+                <div class="pt-2">
+                  <details class="group">
+                    <summary class="text-[10px] font-bold text-brandCyan cursor-pointer select-none list-none inline-flex items-center gap-1 group-open:text-neutral-500 transition-colors">
+                      Reveal Model Essay Grading Framework <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform group-open:rotate-180"></i>
+                    </summary>
+                    <div class="p-3 bg-neutral-950/40 rounded border border-neutral-900/60 text-[10px] sm:text-xs text-neutral-400 leading-relaxed mt-2 whitespace-pre-wrap">
+                      ${eq.model_answer}
+                    </div>
+                  </details>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        sectionHtml += `</div></div>`;
+      }
+
+      // 6. Important Points Takeaways
+      if (analysisObj.important_points && Array.isArray(analysisObj.important_points) && analysisObj.important_points.length > 0) {
+        sectionHtml += `<div class="space-y-3 pt-2"><h6 class="text-[10px] tracking-widest font-display text-neutral-500 uppercase font-bold">Essential Conceptual Key Points</h6><div class="space-y-2">`;
+        analysisObj.important_points.forEach(p => {
+          sectionHtml += `
+            <div class="p-3 rounded-lg bg-neutral-950/60 border border-neutral-900 space-y-1 hover:border-brandCyan/20 transition-all">
+              <p class="text-xs font-semibold text-brandWhite inline-flex items-start gap-2">
+                <span class="mt-1 h-1.5 w-1.5 rounded-full bg-brandCyan shrink-0"></span>
+                ${p.point || ''}
+              </p>
+              <p class="text-[10px] text-neutral-400 pl-4 leading-normal">${p.why_it_matters || ''}</p>
+            </div>
+          `;
+        });
+        sectionHtml += `</div></div>`;
+      }
+
+      // 7. Accompanying keywords tags
+      if (analysisObj.keywords && Array.isArray(analysisObj.keywords) && analysisObj.keywords.length > 0) {
+        sectionHtml += `
+          <div class="space-y-2 pt-2">
+            <h6 class="text-[10px] tracking-widest font-display text-neutral-500 uppercase font-bold">Identified Academic Keywords</h6>
+            <div class="flex flex-wrap gap-1.5">
+        `;
+        analysisObj.keywords.forEach(kw => {
+          sectionHtml += `<span class="px-2.5 py-1 text-[9px] font-mono text-neutral-400 bg-neutral-900 border border-neutral-800 rounded-full hover:border-brandCyan/40 hover:text-brandWhite transition-colors">${kw}</span>`;
+        });
+        sectionHtml += `</div></div>`;
+      }
+
+      // If no valid dynamic sections found, fall back to default
+      if (sectionHtml === "") {
+        renderConceptsList(MOCK_ENTITIES);
+      } else {
+        entitiesBox.innerHTML = sectionHtml;
+      }
+    }
+
+    function renderConceptsList(list) {
+      const entitiesBox = document.getElementById('analysisEntities');
+      entitiesBox.innerHTML = "";
+      list.forEach(item => {
         const itemNode = document.createElement('div');
         itemNode.className = "p-3 rounded-lg bg-neutral-950/60 border border-neutral-900 space-y-1 hover:border-brandCyan/30 transition-colors";
         itemNode.innerHTML = `
-          <h6 class="text-xs font-display font-bold text-brandCyan">${item.tag}</h6>
-          <p class="text-[11px] text-neutral-400 leading-normal">${item.desc || 'No description extracted.'}</p>
+          <h6 class="text-xs font-display font-bold text-brandCyan">${item.tag || item.title || ''}</h6>
+          <p class="text-[11px] text-neutral-400 leading-normal">${item.desc || item.importance || 'No description extracted.'}</p>
         `;
         entitiesBox.appendChild(itemNode);
       });
@@ -1582,6 +1878,7 @@
       loadFlashcard();
     }
 
+    // --- MEMORY CARD CONTROLLERS ---
     function loadFlashcard() {
       const idx = state.flashcardState.currentIndex;
       const currentFC = state.flashcards[idx];
