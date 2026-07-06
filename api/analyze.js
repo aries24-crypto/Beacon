@@ -114,7 +114,7 @@ Ensure all information is accurate, fact-based, and directly pulled or logically
 
     // 5. Query the Groq Chat Completions API
     // Using llama-3.3-70b-versatile for top-tier reasoning and structural accuracy
-    const groqResponse = await fetch('https://api.groq.com/openapi/v1/chat/completions', {
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
