@@ -1,11 +1,11 @@
 /**
  * Vercel Serverless Function Config
- * Raises the request body parser limit to support large PDF extractions
+ * Raises the request body parser limit to support extremely large PDF extractions
  */
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb'
+      sizeLimit: '50mb'
     }
   }
 };
@@ -13,7 +13,8 @@ export const config = {
 /**
  * Vercel Serverless Function
  * Endpoint: /api/analyze
- * Purpose: Securely analyzes study materials using the official Groq API with robust schema mapping.
+ * Purpose: Securely analyzes study materials using the official Groq API, 
+ * scaling study asset density and depth proportionally to document length.
  */
 export default async function handler(req, res) {
   // 1. Enforce POST Request Method Only
@@ -99,73 +100,105 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5. Large Document Safety Safeguard
-    // Truncating excessively large PDFs to protect function from exceeding context limits or causing Vercel timeouts.
-    // 40,000 characters provides ~8,000 to 10,000 words, perfect for deep analysis while ensuring fast response times.
-    const MAX_TEXT_LENGTH = 40000;
+    // 5. Dynamic Sizing & Proportional Density Calculation
+    // We calculate the length metrics of the text and dynamically instruct the LLM
+    // on how many quiz questions, flashcards, and topics to generate.
+    const inputLength = trimmedText.length;
+    let targetQuizCount = 4;
+    let targetFlashcardCount = 5;
+    let targetTopicsCount = 3;
+    let summaryDetailGuideline = "a warm, engaging introductory overview of 1-2 friendly paragraphs introducing core foundational concepts.";
+
+    if (inputLength < 6000) {
+      // Small PDF / Article
+      targetQuizCount = 4;
+      targetFlashcardCount = 6;
+      targetTopicsCount = 3;
+      summaryDetailGuideline = "a warm, encouraging, conversational introductory summary of 1-2 paragraphs introducing foundational ideas.";
+    } else if (inputLength < 25000) {
+      // Medium PDF / Chapter
+      targetQuizCount = 8;
+      targetFlashcardCount = 12;
+      targetTopicsCount = 5;
+      summaryDetailGuideline = "a deeply engaging, comprehensive 3-paragraph summary introducing macro connections, chapter priorities, and key study recommendations.";
+    } else if (inputLength < 60000) {
+      // Large PDF / Masterclass
+      targetQuizCount = 12;
+      targetFlashcardCount = 18;
+      targetTopicsCount = 8;
+      summaryDetailGuideline = "an extensive academic introductory masterclass (4-5 paragraphs) weaving together interdisciplinary implications, roadmap overviews, and concept-map connections.";
+    } else {
+      // Extremely Large PDF / Textbook Section
+      targetQuizCount = 18;
+      targetFlashcardCount = 25;
+      targetTopicsCount = 12;
+      summaryDetailGuideline = "a monumental, multi-section chapter breakdown (5-7 paragraphs) outlining complete learning trajectories, systematic structural connections, and a full thematic synthesis.";
+    }
+
+    // 6. Context Windows & Truncation Safety Boundaries
+    // We set a high processing ceiling of 90,000 characters (~18,000 - 22,000 words).
+    // This allows us to process extremely large PDFs without causing LLM context crashes or timing out.
+    const MAX_TEXT_LENGTH = 90000;
     let analyzedText = trimmedText;
     let wasTruncated = false;
 
     if (trimmedText.length > MAX_TEXT_LENGTH) {
-      analyzedText = trimmedText.substring(0, MAX_TEXT_LENGTH) + "\n\n[System Notice: The remaining document text was safely truncated here by Beacon's backend to respect payload limitations.]";
+      analyzedText = trimmedText.substring(0, MAX_TEXT_LENGTH) + "\n\n[System Notice: The remaining document text was safely truncated here by Beacon's backend to respect upstream context bounds.]";
       wasTruncated = true;
     }
 
-    // 6. Beacon AI Identity Prompt & JSON Schema Engineering
-    const systemPrompt = `You are Beacon, an exceptionally intelligent mentor, tutor, study strategist, and guiding companion.
+    // 7. Beacon Conversational AI Identity Prompt & JSON Schema Engineering
+    const systemPrompt = `You are Beacon, an exceptionally intelligent, supportive, and friendly study strategist, expert mentor, and learning companion.
 Your guiding philosophy is: "Beacon: Guiding You Through Every Lesson."
-Your mission is NOT simply to summarize documents. Your mission is to ensure the student deeply understands every concept.
-Always optimize for conceptual understanding, clarity, depth, academic accuracy, logical progression, and real learning.
-Never produce shallow summaries or simply list facts. Instead, explain WHY concepts matter, HOW they connect, and WHEN they are applied.
+Your mission is to ensure the student feels supported and deeply understands every concept instead of just memorizing facts.
 
-Your writing style should feel like an exceptional university professor combined with a world-class private tutor.
-Every explanation must be detailed, accurate, engaging, logically organized, beginner friendly, and academically rigorous.
-Avoid robotic language, repetitive phrases, and generic textbook wording.
-Whenever appropriate:
-• provide intuition and analogies
-• explain cause and effect
-• relate concepts together
-• explain common misconceptions
-• explain why students usually struggle with these topics
-• provide memory tricks (mnemonics, associations)
+Your tone should feel like an incredibly encouraging, supportive university professor combined with a friendly, world-class private tutor.
+Avoid cold textbook phrasing or robotic wording. Speak directly to the student in the first-person when appropriate. Use warm hooks, intuitive analogies, real-world context, and clear explanations of why concepts hold value.
 
-You must output valid JSON ONLY.
-Never output any markdown blocks like \`\`\`json. Return only raw, parsing-ready stringified JSON.
-No conversational intro or outro text. Keep explanations dense and eliminate redundant filler phrases to optimize token generation speed.
+Your instructions are strictly customized to the length of the uploaded document:
+- You must generate EXACTLY ${targetQuizCount} high-quality, conceptual multiple-choice quiz questions.
+- You must generate EXACTLY ${targetFlashcardCount} robust active-recall flashcards.
+- You must extract at least ${targetTopicsCount} distinct structural topics.
+- Your summary must adhere to: ${summaryDetailGuideline}
+
+You must output valid JSON ONLY. 
+Do NOT wrap the JSON in markdown formatting blocks like \`\`\`json. Return only raw, parsing-ready stringified JSON.
+Do not provide any conversational intro or outro outside the JSON structure.
 
 Strictly adhere to this detailed academic JSON schema:
 {
-  "title": "A highly descriptive, educational title matching the subject matter of the text",
-  "summary": "An introduction explaining: what the document is about, why it matters, the major ideas, how the ideas connect, and what students should focus on first. Must feel like a teacher introducing a chapter.",
+  "title": "An inviting, educational title reflecting the subject matter",
+  "mentor_welcome": "A warm, personal, highly encouraging conversational welcome greeting the user directly (e.g. 'Hey there, future expert! Beacon here. Let's conquer this together...'). Set a friendly, supportive tone.",
+  "summary": "The structured introduction as directed by your length guidelines.",
   "topics": [
     {
       "title": "Topic Name",
-      "importance": "Detailed explanation of why this topic is essential to understand",
+      "importance": "Detailed friendly explanation of why this topic is highly essential to master",
       "difficulty": "Beginner, Intermediate, or Advanced",
-      "estimated_learning_time": "Estimated study time (e.g. 30 minutes)",
-      "prerequisites": "What the student needs to understand first before learning this topic",
-      "common_misconceptions": "A misconception students usually have and why it is incorrect",
-      "real_world_applications": "How this concept is actively applied in industries or daily life"
+      "estimated_learning_time": "Estimated study time (e.g., '20 minutes')",
+      "prerequisites": "Pre-requisite understanding needed for this specific topic",
+      "common_misconceptions": "A common trap or misconception students fall into, and the intuitive reason why it is wrong",
+      "real_world_applications": "How this concept operates in real-world environments or industry"
     }
   ],
   "subtopics": [
     {
       "title": "Subtopic Name",
       "learning_order": 1,
-      "description": "An engaging, deep pedagogical description explaining the subtopic thoroughly"
+      "description": "An engaging, deep pedagogical description explaining the subtopic concepts thoroughly"
     }
   ],
   "important_points": [
     {
-      "point": "Core conceptual takeaway/idea",
-      "why_it_matters": "A deep academic explanation of why this point holds high significance"
+      "point": "High-value conceptual takeaway",
+      "why_it_matters": "A deep explanatory breakdown of why this point holds high significance"
     }
   ],
-  "keywords": ["Critical academic terms or jargon"],
+  "keywords": ["Critical terminology or jargon definitions"],
   "definitions": [
     {
       "term": "Term Name",
-      "meaning": "Detailed semantic explanation",
+      "meaning": "Clear, detailed semantic explanation",
       "importance": "Why understanding this specific term is relevant to the field",
       "example": "A concrete, relatable example demonstrating the term",
       "real_world_context": "How this term applies practically outside the classroom"
@@ -173,9 +206,9 @@ Strictly adhere to this detailed academic JSON schema:
   ],
   "formulas": [
     {
-      "formula": "The math/logic/scientific formula written in standard LaTeX formatting (e.g., $$E = mc^2$$)",
-      "variable_explanations": "Breakdown of every single variable/constant in the formula",
-      "meaning": "Conceptual explanation of what this mathematical relationship represents",
+      "formula": "The math/logic/scientific formula written in standard LaTeX formatting (e.g., $$E = mc^2$$). Leave array empty if no formulas are relevant.",
+      "variable_explanations": "Breakdown of every single variable or constant in the formula",
+      "meaning": "Conceptual explanation of what this relationship represents",
       "derivation": "A brief pedagogical breakdown of where this relationship originates, if applicable",
       "when_to_use": "Scenarios or problem-types where this formula is the correct tool",
       "common_mistakes": "Typical algebraic or logical slip-ups students make when solving with this formula",
@@ -184,13 +217,13 @@ Strictly adhere to this detailed academic JSON schema:
   ],
   "flashcards": [
     {
-      "front": "An active recall question designed to provoke critical, deep thought rather than simple memory retrieval",
+      "front": "An active recall question designed to provoke deep thought rather than simple memory retrieval",
       "back": "A concise, complete, logically rich explanation representing the model memory target"
     }
   ],
   "quiz_questions": [
     {
-      "question": "A rigorous, university-level multiple-choice question testing conceptual mechanics",
+      "question": "A rigorous, conceptual multiple-choice question testing structural mechanics",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correct_answer": "The exact string match of the correct option",
       "explanation": "Extremely detailed breakdown explaining why the correct option is true, and why each of the other three incorrect options are false or misleading"
@@ -203,13 +236,14 @@ Strictly adhere to this detailed academic JSON schema:
     }
   ],
   "difficulty": "Overall composite difficulty of the text (Beginner, Intermediate, or Advanced)",
-  "estimated_study_time": "Estimated reading and comprehension time for the entire material"
+  "estimated_study_time": "Estimated reading and comprehension time for the entire material",
+  "study_strategy_tip": "A highly customized, friendly study trick, memory anchor, or motivational tip from Beacon to the student on how to digest this specific material"
 }`;
 
-    // 7. Establish Fetch Call with Timeout Abort Controller
-    // Vercel Hobby accounts forcefully terminate functions after 10s.
-    // By setting our internal cutoff at 8.5 seconds (8500ms), we can catch the timeout internally,
-    // and return a graceful, user-friendly JSON response instead of a native Vercel HTML Crash page.
+    // 8. Establish Fetch Call with Timeout Abort Controller
+    // Vercel Hobby accounts have a hard 10s timeout limit. 
+    // We target 8.5 seconds (8500ms) to allow the API to gracefully catch the timeout and return an actionable JSON message,
+    // rather than letting the Vercel thread crash on the frontend with a generic 504.
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
       abortController.abort();
@@ -217,7 +251,6 @@ Strictly adhere to this detailed academic JSON schema:
 
     let groqResponse;
     try {
-      // Official OpenAI-compatible endpoint for Groq
       groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -225,14 +258,14 @@ Strictly adhere to this detailed academic JSON schema:
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile', // Premier document analysis reasoning model
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Analyze this material with complete academic depth:\n\n${analyzedText}` }
+            { role: 'user', content: `Analyze this material with deep mentorship guidelines:\n\n${analyzedText}` }
           ],
-          temperature: 0.3, // Keeps output highly structured and deterministic
-          response_format: { type: 'json_object' }, // Guarantees JSON mode compliance
-          max_tokens: 4500 // Balanced output threshold preventing response truncation
+          temperature: 0.35, // Keeps output logical yet allows for conversational tutoring flow
+          response_format: { type: 'json_object' }, // Enforce JSON output compliance
+          max_tokens: 5000 // Large output token buffer for longer analytical structures
         }),
         signal: abortController.signal
       });
@@ -240,7 +273,7 @@ Strictly adhere to this detailed academic JSON schema:
       if (fetchError.name === 'AbortError') {
         return res.status(504).json({
           success: false,
-          error: 'Timeout Exception: The academic material is highly complex and took too long to analyze. Please try a smaller section of text or retry in a few moments.'
+          error: 'Beacon Timeout: This document contains deep concepts that are taking longer to analyze. Try focusing on a smaller section or retry in a moment.'
         });
       }
       throw fetchError;
@@ -248,13 +281,11 @@ Strictly adhere to this detailed academic JSON schema:
       clearTimeout(timeoutId);
     }
 
-    // 8. Handle Groq Error Responses
+    // 9. Handle Groq Error Responses
     if (!groqResponse.ok) {
       const errorPayload = await groqResponse.json().catch(() => ({}));
-      const errorText = JSON.stringify(errorPayload) || `HTTP Error ${groqResponse.status}`;
-      console.error(`[GROQ API ERROR] Status Code: ${groqResponse.status}`, errorText);
+      console.error(`[GROQ API ERROR] Status Code: ${groqResponse.status}`, JSON.stringify(errorPayload));
 
-      // Returns the error package safely for structural debugging in active development.
       return res.status(502).json({
         success: false,
         error: 'Upstream AI Service Error: Groq API rejected the analysis request.',
@@ -266,17 +297,17 @@ Strictly adhere to this detailed academic JSON schema:
     const rawAiResponse = responseData.choices?.[0]?.message?.content;
 
     if (!rawAiResponse) {
-      console.error('[BEACON BACKEND ERROR] Empty text choices received from Groq:', responseData);
+      console.error('[BEACON BACKEND ERROR] Empty response payload received from Groq:', responseData);
       return res.status(502).json({
         success: false,
         error: 'Invalid AI Payload: Groq returned a response without valid content generation.'
       });
     }
 
-    // 9. Safe Schema Formatting and Parsing
+    // 10. Safe Schema Formatting and Parsing
     let parsedAnalysis;
     try {
-      // Strip accidental Markdown framing block formatting if any bypass occurs
+      // Strip out markdown wrap formatting if any edge case occurs
       const cleanJsonString = rawAiResponse
         .replace(/^```json/i, '')
         .replace(/```$/, '')
@@ -292,12 +323,12 @@ Strictly adhere to this detailed academic JSON schema:
       });
     }
 
-    // 10. Inject Truncation Metadata Warning for Front-end Context Display
+    // 11. Inject Truncation Metadata Warning if applicable
     if (wasTruncated && parsedAnalysis) {
-      parsedAnalysis.truncated_warning = "The original uploaded document was extremely large and was safely shortened by Beacon to focus study highlights on the first major chapters of the text.";
+      parsedAnalysis.truncated_warning = "The uploaded document was extremely large. Beacon has focused this comprehensive analysis on the initial sections of your study material.";
     }
 
-    // 11. Return Success Result
+    // 12. Return Success Result
     return res.status(200).json({
       success: true,
       analysis: parsedAnalysis
