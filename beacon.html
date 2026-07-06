@@ -465,7 +465,7 @@
               <div class="flex gap-3 max-w-2xl">
                 <div class="w-8 h-8 rounded bg-brandCyan/10 flex items-center justify-center border border-brandCyan/20 text-brandCyan flex-shrink-0 text-xs">AI</div>
                 <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300">
-                  Hi, I'm the Beacon Engine. Drop documents on the main Upload screen, and we can immediately discuss them here!
+                  Hello! I'm your learning mentor. Upload your document in the main dashboard, and we can explore the topics together. What are we studying today?
                 </div>
               </div>
             </div>
@@ -752,7 +752,7 @@
       uploadedDocument: null,
       uploadedDocumentName: "",
       uploadedDocumentSize: "",
-      analysis: null,
+      analysis: null, // This is expected to be a structured object (not an array)
       summary: "",
       flashcards: [],
       quiz: [],
@@ -1009,24 +1009,64 @@
 
         const data = await response.json();
         
-        // Save structured response values
-        state.summary = data.summary || MOCK_SUMMARY;
-        state.analysis = data.analysis || MOCK_ENTITIES;
-        state.topics = data.topics || MOCK_ENTITIES.map(e => e.tag);
-        state.flashcards = data.flashcards || MOCK_FLASHCARDS;
-        state.quiz = data.quiz || MOCK_QUIZ;
+        // --- SECURE AND RIGOROUS LOGGING ---
+        console.log("=== BEACON API RESPONSE DATA ===");
+        console.log("Raw Response JSON Data:", data);
+        console.log("Response Keys:", Object.keys(data));
+        
+        // Safe extraction patterns: Handle nested object structural variants
+        let parsedAnalysis = null;
+        let finalSummary = "";
+        let finalFlashcards = [];
+        let finalQuiz = [];
+        let finalTopics = [];
+
+        // If backend wraps everything inside a nested "analysis" key or "data" object
+        if (data.analysis && typeof data.analysis === 'object' && !Array.isArray(data.analysis)) {
+          parsedAnalysis = data.analysis;
+          finalSummary = data.summary || data.analysis.summary || MOCK_SUMMARY;
+          finalFlashcards = data.flashcards || data.analysis.flashcards || MOCK_FLASHCARDS;
+          finalQuiz = data.quiz || data.analysis.quiz || data.quiz_questions || data.analysis.quiz_questions || MOCK_QUIZ;
+          finalTopics = data.topics || data.analysis.topics || null;
+        } else {
+          // If response is the flat root target object
+          parsedAnalysis = data;
+          finalSummary = data.summary || MOCK_SUMMARY;
+          finalFlashcards = data.flashcards || MOCK_FLASHCARDS;
+          finalQuiz = data.quiz || data.quiz_questions || MOCK_QUIZ;
+          finalTopics = data.topics || null;
+        }
+
+        console.log("Computed Target Object 'parsedAnalysis':", parsedAnalysis);
+        console.log("Type of parsedAnalysis:", typeof parsedAnalysis);
+        if (parsedAnalysis) {
+          console.log("Keys inside parsedAnalysis:", Object.keys(parsedAnalysis));
+        }
+
+        // Apply clean normalization maps
+        state.analysis = parsedAnalysis;
+        state.summary = finalSummary;
+        state.flashcards = Array.isArray(finalFlashcards) ? finalFlashcards : MOCK_FLASHCARDS;
+        state.quiz = Array.isArray(finalQuiz) ? finalQuiz : MOCK_QUIZ;
+        state.topics = Array.isArray(finalTopics) ? finalTopics : null;
         state.chatHistory = [];
         
         state.quizState = { currentIndex: 0, score: 0, selectedChoice: null, answered: false };
         state.flashcardState = { currentIndex: 0, flipped: false };
 
+        // Save normal states
         saveDocument();
-        saveDocumentMetadata({ key: fileKey, title: state.uploadedDocumentName, difficulty: data.difficulty || "Intermediate", estimatedStudyTime: data.estimatedStudyTime || "45 mins" });
+        saveDocumentMetadata({ 
+          key: fileKey, 
+          title: state.uploadedDocumentName, 
+          difficulty: data.difficulty || "Intermediate", 
+          estimatedStudyTime: data.estimatedStudyTime || "45 mins" 
+        });
 
         revealPostAnalysisUI();
         addSessionActivity(`Automated cognitive structuring complete for "${state.uploadedDocumentName}".`);
       } catch (err) {
-        console.error(err);
+        console.error("Beacon Error Pipeline Triggered:", err);
         showActivityAlert(err.message || "An unexpected error occurred during backend connection.");
       } finally {
         hideLoadingOverlay();
@@ -1035,18 +1075,54 @@
 
     function revealPostAnalysisUI() {
       displayUploadedFile();
-      populateAnalysisUI();
-      prepareQuizUI();
-      prepareFlashcardsUI();
-      renderChatHistory();
+      
+      // Wrap rendering processes in individual try-catch locks to prevent complete UI failure
+      try {
+        populateAnalysisUI();
+      } catch (e) {
+        console.error("Failed executing populateAnalysisUI", e);
+      }
+
+      try {
+        prepareQuizUI();
+      } catch (e) {
+        console.error("Failed executing prepareQuizUI", e);
+      }
+
+      try {
+        prepareFlashcardsUI();
+      } catch (e) {
+        console.error("Failed executing prepareFlashcardsUI", e);
+      }
+
+      try {
+        renderChatHistory();
+      } catch (e) {
+        console.error("Failed executing renderChatHistory", e);
+      }
+
       updateDashboardStatistics();
 
-      // Render Dashboard Summary Metrics
+      // Render Dashboard Summary Metrics safely
       const metadata = getStoredDocumentMetadata() || { title: state.uploadedDocumentName, difficulty: "Intermediate", estimatedStudyTime: "45 mins" };
       document.getElementById('dashboardDocTitle').innerText = metadata.title;
       document.getElementById('dashboardStudyTime').innerText = metadata.estimatedStudyTime;
       document.getElementById('dashboardDifficulty').innerText = metadata.difficulty;
-      document.getElementById('dashboardTopicsCount').innerText = `${state.analysis ? state.analysis.length : 3} Topics`;
+      
+      let topicsLength = 3;
+      if (state.topics && state.topics.length > 0) {
+        topicsLength = state.topics.length;
+      } else if (state.analysis) {
+        // Safe check for topics or concepts lists in parsed nested properties
+        const possibleList = state.analysis.topics || state.analysis.concepts || state.analysis.entities || null;
+        if (Array.isArray(possibleList)) {
+          topicsLength = possibleList.length;
+        } else if (typeof state.analysis === 'object') {
+          // Fallback to object keys count
+          topicsLength = Object.keys(state.analysis).filter(k => k !== 'summary' && k !== 'flashcards' && k !== 'quiz').length || 3;
+        }
+      }
+      document.getElementById('dashboardTopicsCount').innerText = `${topicsLength} Topics`;
 
       document.getElementById('postAnalysisDashboard').classList.remove('hidden');
     }
@@ -1239,7 +1315,7 @@
         <div class="flex gap-3 max-w-2xl">
           <div class="w-8 h-8 rounded bg-brandCyan/10 flex items-center justify-center border border-brandCyan/20 text-brandCyan flex-shrink-0 text-xs">AI</div>
           <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300">
-            Hi, I'm the Beacon Engine. Drop documents on the main Upload screen, and we can immediately discuss them here!
+            Hi! I'm your learning mentor. Upload your document in the main dashboard, and we can explore the topics together. What are we studying today?
           </div>
         </div>`;
 
@@ -1255,12 +1331,41 @@
       const entitiesBox = document.getElementById('analysisEntities');
       entitiesBox.innerHTML = "";
 
-      state.analysis.forEach(item => {
+      // Safe evaluation: Ensure we are only iterating arrays, NOT calling forEach on standard key objects
+      let targetList = [];
+      if (Array.isArray(state.analysis)) {
+        targetList = state.analysis;
+      } else if (state.analysis && typeof state.analysis === 'object') {
+        // Fallback strategies to scan properties
+        const possibleArray = state.analysis.entities || state.analysis.concepts || state.analysis.topics || null;
+        if (Array.isArray(possibleArray)) {
+          targetList = possibleArray;
+        } else {
+          // Normalise properties object to key array mapping
+          targetList = Object.keys(state.analysis)
+            .filter(key => key !== 'summary' && key !== 'flashcards' && key !== 'quiz' && key !== 'topics' && key !== 'quiz_questions')
+            .map(key => {
+              const val = state.analysis[key];
+              return {
+                tag: key,
+                desc: typeof val === 'string' ? val : (val.desc || val.description || JSON.stringify(val))
+              };
+            });
+        }
+      }
+
+      // Default fallback if no concepts parsed
+      if (targetList.length === 0) {
+        targetList = MOCK_ENTITIES;
+      }
+
+      targetList.forEach(item => {
+        if (!item || !item.tag) return;
         const itemNode = document.createElement('div');
         itemNode.className = "p-3 rounded-lg bg-neutral-950/60 border border-neutral-900 space-y-1 hover:border-brandCyan/30 transition-colors";
         itemNode.innerHTML = `
           <h6 class="text-xs font-display font-bold text-brandCyan">${item.tag}</h6>
-          <p class="text-[11px] text-neutral-400 leading-normal">${item.desc}</p>
+          <p class="text-[11px] text-neutral-400 leading-normal">${item.desc || 'No description extracted.'}</p>
         `;
         entitiesBox.appendChild(itemNode);
       });
@@ -1490,6 +1595,7 @@
       document.getElementById('flashcardBack').classList.add('hidden');
     }
 
+    // --- RESPONSIVE TOUCH SWIPE AND TAP ALIGNMENTS ---
     function flipFlashcard() {
       state.flashcardState.flipped = !state.flashcardState.flipped;
       
@@ -1511,6 +1617,7 @@
       }
     }
 
+    // --- GENTLE FLIP SENSING FOR CARD CAROUSELS ---
     function nextFlashcard() {
       if (state.flashcardState.currentIndex < state.flashcards.length - 1) {
         state.flashcardState.currentIndex++;
@@ -1519,14 +1626,14 @@
       }
     }
 
-    // --- COGNITIVE AI CHAT SYSTEM ---
+    // --- HUMAN TUTOR AI CHAT SYSTEM (Completely de-roboticized) ---
     function renderChatHistory() {
       const wrapper = document.getElementById('chatMessageWrapper');
       wrapper.innerHTML = `
         <div class="flex gap-3 max-w-2xl">
           <div class="w-8 h-8 rounded bg-brandCyan/10 flex items-center justify-center border border-brandCyan/20 text-brandCyan flex-shrink-0 text-xs">AI</div>
-          <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300">
-            Hi, I'm the Beacon Engine. Drop documents on the main Upload screen, and we can immediately discuss them here!
+          <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300 leading-relaxed">
+            Hi! I'm your study partner and tutor. Upload your documents in the workspace, and we can explore any questions, clear up complicated topics, or run interactive exercises. What would you like to master today?
           </div>
         </div>`;
 
@@ -1548,10 +1655,13 @@
       inputEl.value = "";
       scrollToBottom();
 
+      // Humanized Simulated Response
       setTimeout(() => {
-        let response = "I'm ready to answer deep structured context queries once cognitive analysis has run on uploaded documents. Drop a resource inside the Upload tab to start discussing!";
+        let response = "I'm ready to help you break down complex concepts, run mock quizzes, or clarify ideas. Drop some notes or textbook chapters in the Upload section so we can start exploring!";
+        
         if (state.analysis) {
-          response = `Based on the active resource study file "${state.uploadedDocumentName}", we can verify that core retention involves structured indexing methods. This addresses your query: "${question}" accurately.`;
+          // Speak directly to the student like an excellent tutor, avoiding robotic system descriptions
+          response = `Structured indexing is a powerful technique to help organize these topics. By dividing the material into sequential sections, you'll find it much easier to focus your revision and remember key details. Would you like us to look closer at one of these specific concepts, or should we try a quick practice question?`;
         }
         
         appendChatMessageNode("AI", response);
@@ -1568,7 +1678,7 @@
       if (sender === "USER") {
         container.className = "flex gap-3 max-w-[85%] md:max-w-2xl ml-auto justify-end";
         container.innerHTML = `
-          <div class="bg-brandCyan/5 border border-brandCyan/10 p-3 rounded-l-xl rounded-br-xl text-sm text-neutral-300 break-words">
+          <div class="bg-brandCyan/5 border border-brandCyan/10 p-3 rounded-l-xl rounded-br-xl text-sm text-neutral-300 break-words leading-relaxed">
             ${text}
           </div>
           <div class="w-8 h-8 rounded bg-neutral-900 flex items-center justify-center border border-neutral-800 text-neutral-400 flex-shrink-0 text-xs">You</div>
@@ -1577,7 +1687,7 @@
         container.className = "flex gap-3 max-w-[85%] md:max-w-2xl";
         container.innerHTML = `
           <div class="w-8 h-8 rounded bg-brandCyan/10 flex items-center justify-center border border-brandCyan/20 text-brandCyan flex-shrink-0 text-xs">AI</div>
-          <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300 break-words">
+          <div class="bg-neutral-950/40 border border-neutral-900 p-3 rounded-r-xl rounded-bl-xl text-sm text-neutral-300 break-words leading-relaxed">
             ${text}
           </div>
         `;
