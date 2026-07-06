@@ -13,6 +13,9 @@
   <!-- Lucide Icons (CDN) -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- PDF.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -101,8 +104,8 @@
       <span class="font-display font-bold text-lg md:text-xl tracking-wide text-brandWhite">Beacon</span>
     </div>
 
-    <!-- Center: Dynamic Greeting -->
-    <div class="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none">
+    <!-- Center: Dynamic Greeting (Hidden on mobile to reduce header clutter) -->
+    <div class="absolute left-1/2 -translate-x-1/2 text-center pointer-events-none hidden sm:block">
       <h1 id="headerGreeting" class="font-display font-medium text-xs md:text-base tracking-tight text-neutral-300">
         Good Evening, Scholar
       </h1>
@@ -198,6 +201,17 @@
       
       <!-- Content Container -->
       <div class="flex-1 space-y-8">
+
+        <!-- Personalized Inline Greeting for uncluttered Mobile Views -->
+        <div class="md:hidden p-4 rounded-xl bg-neutral-900/40 border border-neutral-900/60 flex items-center justify-between">
+          <div>
+            <h1 id="mobileGreeting" class="font-display font-bold text-sm text-brandWhite">Good Evening, Scholar</h1>
+            <p id="mobileObjective" class="text-[10px] text-neutral-500 mt-0.5">Ready to meet your daily objectives.</p>
+          </div>
+          <button onclick="openProfileViewer()" class="w-8 h-8 rounded-full bg-brandCyan/10 border border-brandCyan/30 flex items-center justify-center text-brandCyan text-xs font-bold">
+            <i data-lucide="user" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
         
         <!-- ================= PAGE: UPLOAD DOCS (MAIN HOME VIEW) ================= -->
         <section id="page-upload" class="page-view space-y-8 animate-fade">
@@ -208,7 +222,7 @@
 
           <!-- Upload Drop Zone Box -->
           <div class="max-w-4xl">
-            <div id="coreUploadBoxContainer" class="p-6 md:p-10 rounded-2xl bg-brandCard border-2 border-dashed border-brandCyan/20 hover:border-brandCyan/50 transition-all duration-300 relative overflow-hidden group">
+            <div id="coreUploadBoxContainer" class="p-4 sm:p-10 rounded-2xl bg-brandCard border-2 border-dashed border-brandCyan/20 hover:border-brandCyan/50 transition-all duration-300 relative overflow-hidden group">
               
               <!-- Standard Upload Form Area -->
               <div id="uploadPrompt" class="flex flex-col items-center text-center py-6">
@@ -224,40 +238,86 @@
                 </label>
               </div>
 
-              <!-- Loading Spinner State (Instantly analyzes upon upload) -->
-              <div id="uploadLoading" class="hidden flex flex-col items-center text-center py-8">
-                <div class="relative w-12 h-12 mb-4">
-                  <div class="absolute inset-0 rounded-full border-4 border-brandCyan/10"></div>
-                  <div class="absolute inset-0 rounded-full border-4 border-t-brandCyan animate-spin"></div>
-                </div>
-                <h3 class="font-display font-semibold text-brandWhite text-base">Assembling Cognitive Index...</h3>
-                <p class="text-xs text-neutral-500 animate-pulse mt-1">Extracting core patterns • Mapping entities • Formatting interactive modules</p>
-              </div>
-
               <!-- Success File Display Header -->
               <div id="uploadSuccess" class="hidden flex flex-col items-center text-center py-4">
                 <div class="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/30 mb-3">
-                  <i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>
+                  <i data-lucide="file-text" class="w-5 h-5 text-green-400"></i>
                 </div>
-                <h3 class="font-display font-bold text-sm text-green-400 mb-1">✓ Document Analyzed & Structured</h3>
+                <h3 class="font-display font-bold text-sm text-green-400 mb-1">✓ Document Uploaded</h3>
                 
                 <div class="my-3 px-4 py-2 bg-neutral-900/50 rounded border border-neutral-800 flex items-center gap-2 text-xs text-neutral-300">
                   <i data-lucide="file" class="w-4 h-4 text-brandCyan"></i>
-                  <span id="displayFileName" class="font-mono truncate max-w-[200px] md:max-w-[400px]">document.pdf</span>
+                  <span id="displayFileName" class="font-mono truncate max-w-[150px] sm:max-w-[400px]">document.pdf</span>
                   <span id="displayFileSize" class="text-xs text-neutral-500 font-sans ml-2">(0.0 MB)</span>
                 </div>
 
-                <button onclick="resetFileSelection()" class="px-4 py-1.5 rounded border border-neutral-800 text-neutral-400 text-xs font-semibold hover:bg-neutral-900 transition-colors duration-200 mt-2">
-                  Remove Document
-                </button>
+                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                  <button id="analyseBtn" onclick="startAnalysis()" class="px-5 py-2 rounded-lg bg-brandCyan text-brandBg font-display font-bold text-xs uppercase tracking-wide hover:shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all">
+                    Analyse Document
+                  </button>
+                  <button onclick="resetFileSelection()" class="px-4 py-2 rounded-lg border border-neutral-800 text-neutral-400 text-xs font-semibold hover:bg-neutral-900 transition-colors duration-200">
+                    Remove
+                  </button>
+                </div>
               </div>
 
             </div>
           </div>
 
+          <!-- ================= POST-ANALYSIS METRIC DASHBOARD ================= -->
+          <div id="postAnalysisDashboard" class="hidden max-w-4xl p-5 sm:p-8 rounded-2xl bg-brandCard border border-brandCyan/30 space-y-6 animate-fade">
+            <div class="flex items-center gap-3 border-b border-neutral-900 pb-4">
+              <div class="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/30">
+                <i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>
+              </div>
+              <div>
+                <span class="text-[10px] font-display font-bold text-brandCyan bg-brandCyan/10 px-2 py-0.5 rounded">Analysis Complete</span>
+                <h3 class="font-display font-bold text-base sm:text-lg text-brandWhite mt-1">✓ Document Analysed Successfully</h3>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-neutral-950/60 border border-neutral-900">
+              <div class="space-y-1">
+                <span class="text-[10px] text-neutral-500 uppercase tracking-widest font-display">Document Title</span>
+                <p id="dashboardDocTitle" class="text-xs sm:text-sm font-mono text-brandWhite truncate">Untitled.pdf</p>
+              </div>
+              <div class="space-y-1">
+                <span class="text-[10px] text-neutral-500 uppercase tracking-widest font-display">Est. Study Time</span>
+                <p id="dashboardStudyTime" class="text-xs sm:text-sm text-brandCyan font-semibold">45 mins</p>
+              </div>
+              <div class="space-y-1">
+                <span class="text-[10px] text-neutral-500 uppercase tracking-widest font-display">Difficulty</span>
+                <p id="dashboardDifficulty" class="text-xs sm:text-sm text-brandWhite">Intermediate</p>
+              </div>
+              <div class="space-y-1">
+                <span class="text-[10px] text-neutral-500 uppercase tracking-widest font-display font-bold">Topics</span>
+                <p id="dashboardTopicsCount" class="text-xs sm:text-sm text-brandWhite">3 Topics</p>
+              </div>
+            </div>
+
+            <!-- Action buttons as requested by specification -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5">
+              <button onclick="switchTab('upload'); scrollToAnalysis();" class="px-3 py-3 rounded-lg bg-brandCyan text-brandBg font-display font-bold text-[11px] uppercase hover:shadow-[0_0_12px_rgba(0,229,255,0.4)] transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="book-open" class="w-3.5 h-3.5"></i> Start Learning
+              </button>
+              <button onclick="switchTab('quiz')" class="px-3 py-3 rounded-lg bg-neutral-900 border border-neutral-800 text-brandWhite text-[11px] uppercase hover:bg-neutral-850 hover:border-brandCyan/20 transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="help-circle" class="w-3.5 h-3.5 text-brandCyan"></i> Generate Quiz
+              </button>
+              <button onclick="switchTab('flashcards')" class="px-3 py-3 rounded-lg bg-neutral-900 border border-neutral-800 text-brandWhite text-[11px] uppercase hover:bg-neutral-850 hover:border-brandCyan/20 transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="layers" class="w-3.5 h-3.5 text-brandCyan"></i> Generate Flashcards
+              </button>
+              <button onclick="switchTab('chat')" class="px-3 py-3 rounded-lg bg-neutral-900 border border-neutral-800 text-brandWhite text-[11px] uppercase hover:bg-neutral-850 hover:border-brandCyan/20 transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="message-square" class="w-3.5 h-3.5 text-brandCyan"></i> Open AI Chat
+              </button>
+              <button onclick="switchTab('upload'); scrollToSummary();" class="px-3 py-3 rounded-lg bg-neutral-900 border border-neutral-800 text-brandWhite text-[11px] uppercase hover:bg-neutral-850 hover:border-brandCyan/20 transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-brandCyan"></i> Generate Summary
+              </button>
+            </div>
+          </div>
+
           <!-- ================= INLINE ANALYSIS SECTION ================= -->
           <div id="inlineAnalysisContainer" class="max-w-4xl hidden transition-all duration-300">
-            <div class="p-6 rounded-2xl bg-brandCard border border-brandCyan/15 space-y-6">
+            <div id="summaryTargetAnchor" class="p-6 rounded-2xl bg-brandCard border border-brandCyan/15 space-y-6">
               <div class="flex items-center justify-between border-b border-neutral-900 pb-4">
                 <div>
                   <span class="text-[10px] font-display font-bold text-brandCyan bg-brandCyan/10 px-2 py-1 rounded">Interactive Structure Ready</span>
@@ -270,12 +330,12 @@
                   <h5 class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Executive Summary</h5>
                   <div class="p-4 rounded-lg bg-neutral-950/60 border border-neutral-900 text-sm text-neutral-300 leading-relaxed space-y-2">
                     <p id="analysisSummaryText">Reading active components...</p>
-                    <p class="text-neutral-400 text-xs">Analysis computed directly. Groq key queries integration can take place dynamically on Vercel endpoints.</p>
+                    <p class="text-neutral-400 text-xs">Analysis computed securely on current guest local environment.</p>
                   </div>
                 </div>
 
                 <div class="space-y-3">
-                  <h5 class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Identified Core Entities</h5>
+                  <h5 id="conceptsTargetAnchor" class="text-xs uppercase tracking-widest font-display text-neutral-500 font-bold">Identified Core Entities</h5>
                   <div id="analysisEntities" class="space-y-2">
                     <!-- Dynamic tags generated here -->
                   </div>
@@ -322,7 +382,7 @@
             <div id="quizNotReady" class="text-center space-y-4 py-6">
               <i data-lucide="help-circle" class="w-12 h-12 text-neutral-700 mx-auto"></i>
               <h3 class="font-display font-semibold text-brandWhite">Quiz Deck Uninitialized</h3>
-              <p class="text-xs text-neutral-400 max-w-sm mx-auto mb-2">Please upload a valid PDF document on the main upload workspace to enable interactive quiz metrics.</p>
+              <p class="text-xs text-neutral-400 max-w-sm mx-auto mb-2">Please upload a valid PDF document on the main upload workspace and run the analysis parser to enable quiz elements.</p>
               <button onclick="switchTab('upload')" class="text-xs text-brandCyan hover:underline font-medium">Go to Upload Docs</button>
             </div>
 
@@ -360,22 +420,22 @@
             <div id="flashcardsNotReady" class="text-center space-y-4 py-6">
               <i data-lucide="layers" class="w-12 h-12 text-neutral-700 mx-auto"></i>
               <h3 class="font-display font-semibold text-brandWhite">Flashcards Not Ready</h3>
-              <p class="text-xs text-neutral-400 max-w-sm mx-auto mb-2">Please upload a file to automatically populate memory flashcard indices.</p>
+              <p class="text-xs text-neutral-400 max-w-sm mx-auto mb-2">Please upload and analyze a document file to automatically populate memory flashcards.</p>
               <button onclick="switchTab('upload')" class="text-xs text-brandCyan hover:underline font-medium">Go to Upload Docs</button>
             </div>
 
             <div id="flashcardsReady" class="hidden w-full max-w-md space-y-6 text-center">
-              <div id="flashcardBox" onclick="flipFlashcard()" class="p-8 rounded-xl bg-neutral-900/60 border border-brandCyan/20 min-h-[180px] flex flex-col justify-center items-center cursor-pointer hover:border-brandCyan/60 transition-all duration-300 relative select-none">
+              <div id="flashcardBox" onclick="flipFlashcard()" class="p-6 sm:p-8 rounded-xl bg-neutral-900/60 border border-brandCyan/20 min-h-[180px] flex flex-col justify-center items-center cursor-pointer hover:border-brandCyan/60 transition-all duration-300 relative select-none">
                 <span class="absolute top-2 right-3 text-[10px] text-neutral-500 font-display">Click to flip</span>
                 
                 <div id="flashcardFront" class="space-y-2">
                   <span class="text-[10px] text-brandCyan uppercase tracking-widest font-mono">Question / Front</span>
-                  <p id="fcQuestion" class="font-display font-bold text-base md:text-lg text-brandWhite">Front Question placeholder?</p>
+                  <p id="fcQuestion" class="font-display font-bold text-sm sm:text-base md:text-lg text-brandWhite">Front Question placeholder?</p>
                 </div>
 
                 <div id="flashcardBack" class="hidden space-y-2">
                   <span class="text-[10px] text-brandCyan uppercase tracking-widest font-mono">Answer / Back</span>
-                  <p id="fcAnswer" class="font-sans text-neutral-300 text-sm md:text-base">Back answer details parsed here.</p>
+                  <p id="fcAnswer" class="font-sans text-neutral-300 text-xs sm:text-sm md:text-base">Back answer details parsed here.</p>
                 </div>
               </div>
 
@@ -411,8 +471,8 @@
             </div>
 
             <form id="chatForm" onsubmit="handleSendChat(event)" class="p-3 bg-neutral-950/80 border-t border-neutral-900 flex gap-2">
-              <input type="text" id="chatInput" placeholder="Ask a targeted question regarding your files..." class="flex-1 bg-neutral-900 border border-neutral-850 rounded-lg px-4 py-2.5 text-sm text-brandWhite placeholder-neutral-500 focus:outline-none focus:border-brandCyan/50" required>
-              <button type="submit" class="px-4 py-2 rounded-lg bg-brandCyan text-brandBg font-display font-bold text-sm tracking-wide hover:shadow-[0_0_10px_rgba(0,229,255,0.3)] transition-all duration-200">
+              <input type="text" id="chatInput" placeholder="Ask a question about your files..." class="flex-1 bg-neutral-900 border border-neutral-850 rounded-lg px-4 py-2.5 text-xs sm:text-sm text-brandWhite placeholder-neutral-500 focus:outline-none focus:border-brandCyan/50" required>
+              <button type="submit" class="px-4 py-2 rounded-lg bg-brandCyan text-brandBg font-display font-bold text-xs sm:text-sm tracking-wide hover:shadow-[0_0_10px_rgba(0,229,255,0.3)] transition-all duration-200">
                 Send
               </button>
             </form>
@@ -670,8 +730,23 @@
     </div>
   </div>
 
+  <!-- ================= ACCESSIBLE SYSTEM LOADING OVERLAY ================= -->
+  <div id="loadingOverlay" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 hidden">
+    <div class="text-center space-y-4 max-w-sm">
+      <div class="relative w-16 h-16 mx-auto mb-2">
+        <div class="absolute inset-0 rounded-full border-4 border-brandCyan/10"></div>
+        <div class="absolute inset-0 rounded-full border-4 border-t-brandCyan animate-spin"></div>
+      </div>
+      <h3 id="loadingTitle" class="font-display font-bold text-lg text-brandWhite">Analyzing Document...</h3>
+      <p id="loadingSubtitle" class="text-xs text-neutral-400">Preparing your AI learning workspace...</p>
+    </div>
+  </div>
+
   <!-- ================= MAIN CORE PLATFORM SCRIPT ================= -->
   <script>
+    // Initialize PDF.js Global Worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
     let state = {
       userProfile: null,
       uploadedDocument: null,
@@ -682,7 +757,7 @@
       flashcards: [],
       quiz: [],
       chatHistory: [],
-      activeTab: 'upload', // Upload Docs is the main home tab
+      activeTab: 'upload', // Upload Docs remains the core workspace tab
       quizState: {
         currentIndex: 0,
         score: 0,
@@ -692,52 +767,9 @@
       flashcardState: {
         currentIndex: 0,
         flipped: false
-      }
+      },
+      rawFileHandle: null // References active file for text extraction context
     };
-
-    const MOCK_SUMMARY = "This uploaded PDF contains a fundamental study guide covering introductory elements of modern logic. Critical takeaways suggest modular components are much easier to study when parsed down into simple units. Key principles outlined include: (1) structured indexing enhances retention, (2) automated self-assessment highlights gaps, and (3) contextual queries allow rapid reference scanning. These core concepts form the bedrock of persistent knowledge retention techniques.";
-    
-    const MOCK_ENTITIES = [
-      { tag: "Structured Indexing", desc: "A method of sorting topics sequentially to streamline recall patterns." },
-      { tag: "Self-Assessment", desc: "Interactive verification steps designed to establish knowledge baselines." },
-      { tag: "Contextual Queries", desc: "In-document scanning routines targeting deep thematic linkages." }
-    ];
-
-    const MOCK_QUIZ = [
-      {
-        question: "What is the primary benefit of structured indexing according to the text summaries?",
-        choices: [
-          "It eliminates the need for any subsequent reading",
-          "It optimizes recollection sequences and streamlines basic memory recall",
-          "It automatically publishes your notes to external networks"
-        ],
-        correct: 1
-      },
-      {
-        question: "Why are interactive self-assessment metrics considered highly useful in cognitive study?",
-        choices: [
-          "They establish clear baseline knowledge gaps dynamically",
-          "They replace human instruction structures permanently",
-          "They save storage quotas on sandbox environments"
-        ],
-        correct: 0
-      },
-      {
-        question: "How should contextual query loops be utilized during study runs?",
-        choices: [
-          "To translate the file into arbitrary markup dialects",
-          "To scan deep thematic linkages within active documents rapidly",
-          "To generate complex multiplayer game profiles"
-        ],
-        correct: 1
-      }
-    ];
-
-    const MOCK_FLASHCARDS = [
-      { front: "What defines Structured Indexing in Beacon's engine?", back: "The sequential grouping of key ideas to speed up targeted recall patterns." },
-      { front: "What is the core target of Self-Assessment routines?", back: "Setting clear baseline milestones to target weak comprehension areas." },
-      { front: "Define the purpose of Contextual Queries during analysis", back: "Finding matching logical frameworks within document sets rapidly." }
-    ];
 
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
@@ -762,13 +794,15 @@
       } else {
         sidebar.classList.remove('-translate-x-full');
         backdrop.classList.remove('hidden');
-        document.body.style.overflow = 'hidden'; // Lock scrolling behind menu
+        document.body.style.overflow = 'hidden'; 
       }
     }
 
     // --- TIMED GREETING UTILS ---
     function updateGreetingDisplay() {
       const headerText = document.getElementById('headerGreeting');
+      const mobileText = document.getElementById('mobileGreeting');
+      const mobileObj = document.getElementById('mobileObjective');
       const avatarBox = document.getElementById('profileAvatar');
       
       const hours = new Date().getHours();
@@ -780,10 +814,15 @@
       }
 
       if (state.userProfile && state.userProfile.name) {
-        headerText.innerText = `${salute}, ${state.userProfile.name}`;
+        const messageText = `${salute}, ${state.userProfile.name}`;
+        headerText.innerText = messageText;
+        if (mobileText) mobileText.innerText = messageText;
+        if (mobileObj) mobileObj.innerText = state.userProfile.objective;
         avatarBox.innerText = state.userProfile.name.charAt(0).toUpperCase();
       } else {
-        headerText.innerText = `${salute}, Guest Scholar`;
+        const defaultText = `${salute}, Guest Scholar`;
+        headerText.innerText = defaultText;
+        if (mobileText) mobileText.innerText = defaultText;
         avatarBox.innerText = "GS";
       }
     }
@@ -860,7 +899,7 @@
       document.getElementById('profileViewOverlay').classList.add('hidden');
     }
 
-    // --- DRAG & DROP & INSTANT ANALYSIS ENGINE ---
+    // --- DRAG & DROP & PRE-PROCESSING ---
     function setupDragAndDrop() {
       const dropZone = document.getElementById('coreUploadBoxContainer');
       if (!dropZone) return;
@@ -895,66 +934,172 @@
       }
     }
 
-    // Instant direct analysis workflow after selecting/dropping file
     function processUploadedFile(file) {
       if (file.type !== "application/pdf") {
         showActivityAlert("Unsupported format. Please select or drop a valid PDF document.");
         return;
       }
 
+      state.rawFileHandle = file;
       state.uploadedDocumentName = file.name;
       state.uploadedDocumentSize = (file.size / (1024 * 1024)).toFixed(2) + " MB";
       state.uploadedDocument = "ACTIVE_DOCUMENT_STATUS";
 
-      // Instantly show loading state inside the upload card
-      document.getElementById('uploadPrompt').classList.add('hidden');
-      document.getElementById('uploadSuccess').classList.add('hidden');
-      document.getElementById('uploadLoading').classList.remove('hidden');
+      displayUploadedFile();
+      addSessionActivity(`Loaded document metadata: "${file.name}"`);
+    }
 
-      addSessionActivity(`Loading and indexing document: "${file.name}"`);
+    // --- PDF.js EXTRACTION & BACKEND SYSTEM PIPELINE ---
+    async function extractTextFromPdf(file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let extractedText = "";
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(" ");
+          extractedText += pageText + "\n";
+        }
+        
+        return extractedText.trim();
+      } catch (err) {
+        console.error("PDF text parsing execution error", err);
+        throw new Error("Failed to read text characters inside target PDF. Ensure the file is not copy-protected.");
+      }
+    }
 
-      setTimeout(() => {
-        // Complete visual analysis state immediately
-        state.analysis = MOCK_ENTITIES;
-        state.summary = MOCK_SUMMARY;
-        state.quiz = MOCK_QUIZ;
-        state.flashcards = MOCK_FLASHCARDS;
+    async function startAnalysis() {
+      if (!state.rawFileHandle && !getStoredDocumentMetadata()) {
+        showActivityAlert("No active PDF found to parse.");
+        return;
+      }
+
+      const fileKey = `${state.uploadedDocumentName}_${state.uploadedDocumentSize}`;
+      const cachedMeta = getStoredDocumentMetadata();
+
+      // Cache validation check
+      if (cachedMeta && cachedMeta.key === fileKey && state.analysis) {
+        addSessionActivity("Loading cached thematic analysis data from local storage.");
+        revealPostAnalysisUI();
+        return;
+      }
+
+      // Open loading screen
+      showLoadingOverlay("Analyzing Document...", "Preparing your AI learning workspace...");
+
+      try {
+        const extractedText = await extractTextFromPdf(state.rawFileHandle);
+        if (!extractedText || extractedText.length < 50) {
+          throw new Error("Extracted text is too short to generate a meaningful analysis profile.");
+        }
+
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text: extractedText })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server returned error code ${response.status}. Please try again later.`);
+        }
+
+        const data = await response.json();
+        
+        // Save structured response values
+        state.summary = data.summary || MOCK_SUMMARY;
+        state.analysis = data.analysis || MOCK_ENTITIES;
+        state.topics = data.topics || MOCK_ENTITIES.map(e => e.tag);
+        state.flashcards = data.flashcards || MOCK_FLASHCARDS;
+        state.quiz = data.quiz || MOCK_QUIZ;
+        state.chatHistory = [];
         
         state.quizState = { currentIndex: 0, score: 0, selectedChoice: null, answered: false };
         state.flashcardState = { currentIndex: 0, flipped: false };
 
         saveDocument();
+        saveDocumentMetadata({ key: fileKey, title: state.uploadedDocumentName, difficulty: data.difficulty || "Intermediate", estimatedStudyTime: data.estimatedStudyTime || "45 mins" });
 
-        // Reveal inline summary/analysis panel and hide loader
-        document.getElementById('uploadLoading').classList.add('hidden');
-        displayUploadedFile();
-        populateAnalysisUI();
-        prepareQuizUI();
-        prepareFlashcardsUI();
-        updateDashboardStatistics();
-
-        addSessionActivity(`Automatic cognitive analysis completed on "${file.name}".`);
-      }, 1200);
+        revealPostAnalysisUI();
+        addSessionActivity(`Automated cognitive structuring complete for "${state.uploadedDocumentName}".`);
+      } catch (err) {
+        console.error(err);
+        showActivityAlert(err.message || "An unexpected error occurred during backend connection.");
+      } finally {
+        hideLoadingOverlay();
+      }
     }
 
+    function revealPostAnalysisUI() {
+      displayUploadedFile();
+      populateAnalysisUI();
+      prepareQuizUI();
+      prepareFlashcardsUI();
+      renderChatHistory();
+      updateDashboardStatistics();
+
+      // Render Dashboard Summary Metrics
+      const metadata = getStoredDocumentMetadata() || { title: state.uploadedDocumentName, difficulty: "Intermediate", estimatedStudyTime: "45 mins" };
+      document.getElementById('dashboardDocTitle').innerText = metadata.title;
+      document.getElementById('dashboardStudyTime').innerText = metadata.estimatedStudyTime;
+      document.getElementById('dashboardDifficulty').innerText = metadata.difficulty;
+      document.getElementById('dashboardTopicsCount').innerText = `${state.analysis ? state.analysis.length : 3} Topics`;
+
+      document.getElementById('postAnalysisDashboard').classList.remove('hidden');
+    }
+
+    // --- ACCESSIBLE OVERLAY CONTROLS ---
+    function showLoadingOverlay(title, subtitle) {
+      document.getElementById('loadingTitle').innerText = title;
+      document.getElementById('loadingSubtitle').innerText = subtitle;
+      document.getElementById('loadingOverlay').classList.remove('hidden');
+      
+      // Disable interaction targets
+      const buttons = document.querySelectorAll('button, input, label');
+      buttons.forEach(b => b.setAttribute('disabled', 'true'));
+    }
+
+    function hideLoadingOverlay() {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      const buttons = document.querySelectorAll('button, input, label');
+      buttons.forEach(b => b.removeAttribute('disabled'));
+    }
+
+    // --- UTILITY AUTO SCROLL ACTIONS ---
+    function scrollToAnalysis() {
+      document.getElementById('conceptsTargetAnchor').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function scrollToSummary() {
+      document.getElementById('summaryTargetAnchor').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // --- RENDER COMPONENT CONTROLS ---
     function displayUploadedFile() {
       const isFileUploaded = !!state.uploadedDocument;
       
       if (isFileUploaded) {
         document.getElementById('uploadPrompt').classList.add('hidden');
-        document.getElementById('uploadLoading').classList.add('hidden');
         document.getElementById('uploadSuccess').classList.remove('hidden');
         
         document.getElementById('displayFileName').innerText = state.uploadedDocumentName;
         document.getElementById('displayFileSize').innerText = `(${state.uploadedDocumentSize})`;
         
-        document.getElementById('inlineAnalysisContainer').classList.remove('hidden');
+        if (state.analysis) {
+          document.getElementById('inlineAnalysisContainer').classList.remove('hidden');
+          document.getElementById('postAnalysisDashboard').classList.remove('hidden');
+        } else {
+          document.getElementById('inlineAnalysisContainer').classList.add('hidden');
+          document.getElementById('postAnalysisDashboard').classList.add('hidden');
+        }
       } else {
         document.getElementById('uploadPrompt').classList.remove('hidden');
-        document.getElementById('uploadLoading').classList.add('hidden');
         document.getElementById('uploadSuccess').classList.add('hidden');
-        
         document.getElementById('inlineAnalysisContainer').classList.add('hidden');
+        document.getElementById('postAnalysisDashboard').classList.add('hidden');
       }
     }
 
@@ -967,8 +1112,10 @@
       state.flashcards = [];
       state.quiz = [];
       state.chatHistory = [];
+      state.rawFileHandle = null;
 
       saveDocument();
+      saveDocumentMetadata(null);
       displayUploadedFile();
       updateDashboardStatistics();
       clearCurrentAnalysis();
@@ -1007,7 +1154,7 @@
       }
     }
 
-    // --- PERSISTENCE STORAGE ---
+    // --- PERSISTENCE STORAGE CONTROLS ---
     function saveDocument() {
       localStorage.setItem('uploadedDocument', state.uploadedDocument || "");
       localStorage.setItem('uploadedDocumentName', state.uploadedDocumentName);
@@ -1019,6 +1166,19 @@
       localStorage.setItem('chatHistory', JSON.stringify(state.chatHistory));
       localStorage.setItem('quizState', JSON.stringify(state.quizState));
       localStorage.setItem('flashcardState', JSON.stringify(state.flashcardState));
+    }
+
+    function saveDocumentMetadata(meta) {
+      if (meta) {
+        localStorage.setItem('documentMetadata', JSON.stringify(meta));
+      } else {
+        localStorage.removeItem('documentMetadata');
+      }
+    }
+
+    function getStoredDocumentMetadata() {
+      const val = localStorage.getItem('documentMetadata');
+      return val ? JSON.parse(val) : null;
     }
 
     function loadDocument() {
@@ -1048,10 +1208,7 @@
       displayUploadedFile();
       
       if (state.analysis) {
-        populateAnalysisUI();
-        prepareQuizUI();
-        prepareFlashcardsUI();
-        renderChatHistory();
+        revealPostAnalysisUI();
       }
       updateDashboardStatistics();
     }
@@ -1070,7 +1227,8 @@
         chatHistory: [],
         activeTab: 'upload',
         quizState: { currentIndex: 0, score: 0, selectedChoice: null, answered: false },
-        flashcardState: { currentIndex: 0, flipped: false }
+        flashcardState: { currentIndex: 0, flipped: false },
+        rawFileHandle: null
       };
 
       displayUploadedFile();
@@ -1214,6 +1372,51 @@
       submitBtn.innerText = "Next Question";
       submitBtn.onclick = () => nextQuizQuestion();
     }
+
+    // --- MOCK CONSTANTS FOR INITIAL SETUP ---
+    const MOCK_SUMMARY = "This uploaded PDF contains a fundamental study guide covering introductory elements of modern logic. Critical takeaways suggest modular components are much easier to study when parsed down into simple units. Key principles outlined include: (1) structured indexing enhances retention, (2) automated self-assessment highlights gaps, and (3) contextual queries allow rapid reference scanning. These core concepts form the bedrock of persistent knowledge retention techniques.";
+    
+    const MOCK_ENTITIES = [
+      { tag: "Structured Indexing", desc: "A method of sorting topics sequentially to streamline recall patterns." },
+      { tag: "Self-Assessment", desc: "Interactive verification steps designed to establish knowledge baselines." },
+      { tag: "Contextual Queries", desc: "In-document scanning routines targeting deep thematic linkages." }
+    ];
+
+    const MOCK_QUIZ = [
+      {
+        question: "What is the primary benefit of structured indexing according to the text summaries?",
+        choices: [
+          "It eliminates the need for any subsequent reading",
+          "It optimizes recollection sequences and streamlines basic memory recall",
+          "It automatically publishes your notes to external networks"
+        ],
+        correct: 1
+      },
+      {
+        question: "Why are interactive self-assessment metrics considered highly useful in cognitive study?",
+        choices: [
+          "They establish clear baseline knowledge gaps dynamically",
+          "They replace human instruction structures permanently",
+          "They save storage quotas on sandbox environments"
+        ],
+        correct: 0
+      },
+      {
+        question: "How should contextual query loops be utilized during study runs?",
+        choices: [
+          "To translate the file into arbitrary markup dialects",
+          "To scan deep thematic linkages within active documents rapidly",
+          "To generate complex multiplayer game profiles"
+        ],
+        correct: 1
+      }
+    ];
+
+    const MOCK_FLASHCARDS = [
+      { front: "What defines Structured Indexing in Beacon's engine?", back: "The sequential grouping of key ideas to speed up targeted recall patterns." },
+      { front: "What is the core target of Self-Assessment routines?", back: "Setting clear baseline milestones to target weak comprehension areas." },
+      { front: "Define the purpose of Contextual Queries during analysis", back: "Finding matching logical frameworks within document sets rapidly." }
+    ];
 
     function nextQuizQuestion() {
       const submitBtn = document.getElementById('quizSubmitBtn');
@@ -1425,13 +1628,19 @@
       const navItems = document.querySelectorAll('.nav-item');
       navItems.forEach(item => {
         item.classList.remove('cyan-border-active', 'border-brandCyan/30');
-        item.querySelector('i').classList.remove('text-brandCyan');
+        const icon = item.querySelector('i, svg');
+        if (icon) {
+          icon.classList.remove('text-brandCyan');
+        }
       });
 
       const activeNav = document.getElementById(`nav-${tabName}`);
       if (activeNav) {
         activeNav.classList.add('cyan-border-active');
-        activeNav.querySelector('i').classList.add('text-brandCyan');
+        const icon = activeNav.querySelector('i, svg');
+        if (icon) {
+          icon.classList.add('text-brandCyan');
+        }
       }
 
       const views = document.querySelectorAll('.page-view');
@@ -1450,6 +1659,7 @@
         backdrop.classList.add('hidden');
         document.body.style.overflow = '';
       }
+      lucide.createIcons();
     }
   </script>
 </body>
